@@ -249,6 +249,10 @@ Chaaracter to print when prnting tape head
 '''
 TAPE_HEAD_MARKET = "^"
 
+'''
+Number of columns expected in each row of state transition table
+'''
+NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE = 6
 
 def read_file_into_list(file_path:str)->list:
     """
@@ -369,6 +373,13 @@ def add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dicti
     #, as a seperator
     parts = state_transition_entry.strip().replace(" ","").replace("\t","").split(
         STATE_TRANSITION_ENTRY_SEPERATOR)
+    
+    #Check the number of entries are correct in the table
+    if(len(parts) != NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE):
+        raise Exception("State transition entry does not have "
+                        + str(NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE)
+                        + " elements for the state transition entry: " + state_transition_entry)
+                    
     
     #Check if the state state transtion key exists in the json, if not create
     state_transition_table = add_or_get_state_transition_table_node(turing_machine_dictionary)
