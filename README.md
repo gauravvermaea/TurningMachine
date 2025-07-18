@@ -7,6 +7,9 @@ The states, alphabet, input etc are all customizable. There are no assumptions m
 Very descriptive and detailed. Works better than most of the projects I found out there.
 
 # How To use
-python3 Turing.py <path_turing_machine_file>
+python3 Turing.py <path_turing_machine_file> <optional delay in seconds>
+
+example
+python3 Turing.py ./flib_bits.tm 1.0
 
 The sample files are descriptive enough to use. The code is well documented to change.
