@@ -928,7 +928,6 @@ if __name__ == "__main__":
         
         file_name = sys.argv[1]
         delay = 0.0
-        print("length of argv is : "+ str(len(sys.argv)))
         if(len(sys.argv) == 3):
             delay = float(sys.argv[2])
         run(file_name,delay)    
