@@ -17,13 +17,13 @@ Position=1
 Any_Symbol_Wild_Card =?
 
 #Set of States
-States = Q0,Q1,Q2,Q3,Q4,Q5,Q6
+States = Q0,Q1,Q2,Q3,Q4,Q5,Q6,Q7
 
 #Initial State
 Initial_State = Q0
 
 #Set of accepted final states after which machine halts
-Final_States = Q6
+Final_States = Q7
 
 Shift = Left,Right,No_Shift
 
@@ -50,3 +50,6 @@ S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_
 18,Q5,x,#,Q5,Right
 19,Q5,b,b,Q6,No_Shift
 20,Q5,a,a,Q6,No_Shift
+21,Q6,a,a,Q6,Right
+22,Q6,b,b,Q6,Right
+23,Q6,#,#,Q7,No_Shift
