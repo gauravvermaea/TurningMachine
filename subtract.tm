@@ -26,7 +26,9 @@ Initial_State = Q0
 #Set of accepted final states after which machine halts
 Final_States = Q6
 
-Shift = Left,Right,No_Shift
+Left_Shift_Symbol = Left
+Right_Shift_Symbol = Right
+No_Shift_Symbol = No_Shift
 
 #State Transition Table
 S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_No_Sift

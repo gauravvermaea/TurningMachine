@@ -27,34 +27,47 @@ Name = Add Two Uniary Numbers
 Description = Adds Two uniary Numbers
 
 #The initial input alphabet
-Tape_Alphabet = a,b,c,d,0,1,2,3,4,#
+Tape_Alphabet = 0,c,#,x,d,?
 
 #Blank Symbol of tape
 Blank_Symbol = #
 
 #Initial input String
-Input = aaba1
+Input = 00c00
 
 #Initial head position on input string, count starts with 0
-Position=2
+Position=0
+
+#Maps to any symbol
+Any_Symbol_Wild_Card =?
 
 #Set of States
-States = Q1,Q2,Q3,Q4
+States = Q0,Q1,Q2,Q3,Q4,Q5
 
 #Initial State
-Initial_State = Q1
+Initial_State = Q0
 
 #Set of accepted final states after which machine halts
-Final_States = Q2,Q3
+Final_States = Q5
 
 Shift = Left,Right,No_Shift
 
+Left_Shift_Symbol = Left
+Right_Shift_Symbol = Right
+No_Shift_Symbol = No_Shift
+
 #State Transition Table
 S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_No_Sift
-1,	Q1,	a,		a,	Q2,		Right
-2,	Q1,	b,		b,	Q1,		Right
-3,	Q1,	c,		c,	Q1,		Right
-4,	Q1,	d,		d,	Q1,		Right
+1,Q0,0,x,Q1,Right
+2,Q1,0,0,Q1,Right
+3,Q1,c,c,Q2,Right
+4,Q2,0,0,Q2,Right
+5,Q2,#,0,Q3,Left
+6,Q3,0,0,Q3,Left
+7,Q3,c,c,Q4,Left
+8,Q4,0,0,Q4,Left
+9,Q4,x,x,Q0,Right
+10,Q0,c,#,Q5,Right
 
 4. Validate the Turing machine for static errors such as undefined states, alphabets etc
 5. Execute the Turing machine
@@ -117,11 +130,27 @@ INITIAL_STATE = "Initial_State"
 ANY_SYMBOL_WILD_CARD = "Any_Symbol_Wild_Card"
 
 '''
+The symbol that is used to represent the left shift in the turing machine
+'''
+LEFT_SHIFT_SYMBOL ="Left_Shift_Symbol"
+
+'''
+The symbol that is used to represent the right shift in the turing machine
+'''
+RIGHT_SHIFT_SYMBOL = "Right_Shift_Symbol"
+
+'''
+The symbol that is used to represent the no shift in the turing machine
+'''
+NO_SHIFT_SYMBOL = "No_Shift_Symbol"
+
+'''
 The  set of keys that will be simple key value pairs in the turing machine
 '''
 turing_machine_simple_key_names = [TURING_MACHINE_NAME_KEY, TURING_MACHINE_DESCRIPTION,
                                    BLANK_SYMBOL,BLANK_SYMBOL,INPUT,INITIAL_STATE,
-                                   POSITION,ANY_SYMBOL_WILD_CARD]
+                                   POSITION,ANY_SYMBOL_WILD_CARD, LEFT_SHIFT_SYMBOL,
+                                   RIGHT_SHIFT_SYMBOL, NO_SHIFT_SYMBOL]
 
 #The undergiven keys will be arrays in the file
 
@@ -145,15 +174,10 @@ mahine will halt
 FINAL_STATES = "Final_States"
 
 '''
-Defines the Shift of Turing machine. Currently not in use
-'''
-SHIFT = "Shift"
-
-'''
 This contains the keys that will be assumed to be arrays in
 the input file for the turing machine.
 '''
-turing_machine_array_key_names = [TAPE_ALPHABET,STATES,FINAL_STATES,SHIFT]
+turing_machine_array_key_names = [TAPE_ALPHABET,STATES,FINAL_STATES]
 
 '''
 The seperator of the array
@@ -525,6 +549,7 @@ def is_valid_state_transition_table(turing_machine_dictionary:dict):
             new_state = current_state_alphabet_transtion[NEW_STATE]
             shift_direction = current_state_alphabet_transtion[SHIFT]
             
+            
             #Check new alphabet in turing machine
             if(is_symbol_in_alphabet(turing_machine_dictionary[TAPE_ALPHABET],new_alphabet) == False):
                 return (False,new_alphabet+" not in " + str(turing_machine_dictionary[TAPE_ALPHABET])
@@ -536,8 +561,13 @@ def is_valid_state_transition_table(turing_machine_dictionary:dict):
                                                             +"for state "+current_state
                                                             +" and alphabet "+current_alphabet)
             #Check shift direction
-            if(shift_direction not in turing_machine_dictionary[SHIFT]):
-                return (False,shift_direction+" not in " + str(turing_machine_dictionary[SHIFT])
+            shift_array = [
+                turing_machine_dictionary[LEFT_SHIFT_SYMBOL],
+                turing_machine_dictionary[RIGHT_SHIFT_SYMBOL],
+                turing_machine_dictionary[NO_SHIFT_SYMBOL]
+            ]
+            if(shift_direction not in shift_array):
+                return (False,shift_direction+" not in " + str(shift_array)
                                                             +"for state "+current_state
                                                             +" and alphabet "+current_alphabet)     
             
@@ -660,11 +690,11 @@ def execute_to_next_state(turing_machine_dictionary:dict):
     turing_machine_dictionary[TAPE] = tape
     shift_direction = current_state_transition[SHIFT]
     #set the direction of the head by setting the current position
-    if(shift_direction == "Right"):
+    if(shift_direction == turing_machine_dictionary[RIGHT_SHIFT_SYMBOL]):
         turing_machine_dictionary[CURRENT_POSITION] = str(int(turing_machine_dictionary[CURRENT_POSITION]) + 1)
-    elif(shift_direction == "Left"):
+    elif(shift_direction == turing_machine_dictionary[LEFT_SHIFT_SYMBOL]):
         turing_machine_dictionary[CURRENT_POSITION] = str(int(turing_machine_dictionary[CURRENT_POSITION]) - 1)
-    elif(shift_direction == "No_Shift"):
+    elif(shift_direction == turing_machine_dictionary[NO_SHIFT_SYMBOL]):
         pass
     #If we reach begeining of the tape or the end of the tape then we expand the tape
     #This is done by adding the blank symbol at the beginning or end of the tape
