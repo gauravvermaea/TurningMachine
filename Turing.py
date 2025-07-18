@@ -1,5 +1,6 @@
 import sys
 import json
+import time
 #This code has been written in a single file so that
 #Further a structured programming approch is taken over
 #OO on account of simplicity and ease of understanding
@@ -818,7 +819,7 @@ def print_turing_machine(turing_machine_dictionary):
     print(WHITE_SPACE*head_position+TAPE_HEAD_MARKET)
 
 
-def execute_turing_machine(turing_machine_dictionary):
+def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
     """
     Executes a Turing machine simulation using the provided configuration dictionary.
     Args:
@@ -832,6 +833,11 @@ def execute_turing_machine(turing_machine_dictionary):
                 - CURRENT_STATE: (will be set) The current state of the machine.
                 - TAPE: (will be set) The current tape contents.
                 - CURRENT_POSITION: (will be set) The current position of the tape head.
+                - STATE_TRANSITION_TABLE: The state transition table.
+                - ANY_SYMBOL_WILD_CARD: The symbol to represent any character.
+                - EXECUTION_COUNTER: (will be set) The execution counter.
+        delay(float):
+            Optional delay in seconds between each step of the Turing machine execution.
     Side Effects:
         - Updates the turing_machine_dictionary with the current state, tape, and position.
         - Prints the Turing machine's state at each step.
@@ -872,29 +878,43 @@ def execute_turing_machine(turing_machine_dictionary):
         incremented_execution_counter = int(turing_machine_dictionary[EXECUTION_COUNTER])+ EXECUTION_COUNTER_INCREMENT
         turing_machine_dictionary[EXECUTION_COUNTER] = str(incremented_execution_counter)
         
+        if(delay>  0):
+            time.sleep(delay)
         #Is the machine in halted state? If so break
         if(is_given_state_in_states(halt_states,turing_machine_dictionary[CURRENT_STATE]) == True):
             break
     #Print final state of the Turing machine before termination
     print_turing_machine(turing_machine_dictionary)
-    
+    if(delay>  0):
+        time.sleep(delay)
     print("Turning Machine : "+turing_machine_dictionary[TURING_MACHINE_NAME_KEY])
+    if(delay>  0):
+        time.sleep(delay)
     print("Turning Machine Description : "+turing_machine_dictionary[TURING_MACHINE_DESCRIPTION])
+    if(delay>  0):
+        time.sleep(delay)
     print("Turing Machine has halted in state: "+ turing_machine_dictionary[CURRENT_STATE])
+    if(delay>  0):
+        time.sleep(delay)
     print("Number of execution cycles (Time Complexcity) : "+ str(turing_machine_dictionary[EXECUTION_COUNTER]))
+    if(delay>  0):
+        time.sleep(delay)    
     print("Tape Used (Space Complexcity) : "+ str(len(turing_machine_dictionary[TAPE])))
+    if(delay>  0):
+        time.sleep(delay)    
     print("Initial Input    :   "+ turing_machine_dictionary[INPUT])
+    if(delay>  0):
+        time.sleep(delay)    
     print("Final Output     :   "+ turing_machine_dictionary[TAPE])
 
-def run(turing_machine_file:str=None):
-    
+def run(turing_machine_file:str=None, delay:float=0):
     file_lines = read_file_into_list(turing_machine_file)
     print_file(file_lines)
     file_lines = remove_comments_and_empty_lines_from_list(file_lines)
     turing_machine_dictionary = convert_list_into_dictionary(file_lines)
     validate_turing_machine(turing_machine_dictionary)
     print(json.dumps(turing_machine_dictionary,indent=4))
-    execute_turing_machine(turing_machine_dictionary)
+    execute_turing_machine(turing_machine_dictionary,delay)
     
     
 def main():
@@ -905,7 +925,13 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        run(sys.argv[1])
+        
+        file_name = sys.argv[1]
+        delay = 0.0
+        print("length of argv is : "+ str(len(sys.argv)))
+        if(len(sys.argv) == 3):
+            delay = float(sys.argv[2])
+        run(file_name,delay)    
     else:
-        print("Please Pass file Name as an argument")
+        print("Please Pass file Name as an argument and optional delay")
         
