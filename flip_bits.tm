@@ -1,14 +1,14 @@
-Name = Add Two Uniary Numbers
-Description = Adds Two uniary Numbers
+Name = Flips the bits of the input string
+Description = Flips 0 to 1 and 1 to in an input string until it reaches the end of the string.
 
 #The initial input alphabet
-Tape_Alphabet = 0,c,#,x,d,?
+Tape_Alphabet = 0,1,#,?
 
 #Blank Symbol of tape
 Blank_Symbol = #
 
 #Initial input String
-Input = 00c00
+Input = 000111#
 
 #Initial head position on input string, count starts with 0
 Position=0
@@ -17,25 +17,18 @@ Position=0
 Any_Symbol_Wild_Card =?
 
 #Set of States
-States = Q0,Q1,Q2,Q3,Q4,Q5
+States = Q0,Q1
 
 #Initial State
 Initial_State = Q0
 
 #Set of accepted final states after which machine halts
-Final_States = Q5
+Final_States = Q1
 
 Shift = Left,Right,No_Shift
 
 #State Transition Table
 S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_No_Sift
-1,Q0,0,x,Q1,Right
-2,Q1,0,0,Q1,Right
-3,Q1,c,c,Q2,Right
-4,Q2,0,0,Q2,Right
-5,Q2,#,0,Q3,Left
-6,Q3,0,0,Q3,Left
-7,Q3,c,c,Q4,Left
-8,Q4,0,0,Q4,Left
-9,Q4,x,x,Q0,Right
-10,Q0,c,#,Q5,Right
+1,Q0,0,1,Q0,Right
+2,Q0,1,0,Q0,Right
+3,Q0,#,#,Q1,No_Shift

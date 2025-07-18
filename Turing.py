@@ -1,4 +1,5 @@
 import sys
+import json
 #This code has been written in a single file so that
 #Further a structured programming approch is taken over
 #OO on account of simplicity and ease of understanding
@@ -113,12 +114,14 @@ The initial state of the turing machine
 '''
 INITIAL_STATE = "Initial_State"
 
+ANY_SYMBOL_WILD_CARD = "Any_Symbol_Wild_Card"
+
 '''
 The  set of keys that will be simple key value pairs in the turing machine
 '''
 turing_machine_simple_key_names = [TURING_MACHINE_NAME_KEY, TURING_MACHINE_DESCRIPTION,
                                    BLANK_SYMBOL,BLANK_SYMBOL,INPUT,INITIAL_STATE,
-                                   POSITION]
+                                   POSITION,ANY_SYMBOL_WILD_CARD]
 
 #The undergiven keys will be arrays in the file
 
@@ -557,6 +560,11 @@ def validate_turing_machine(turing_machine_dictionary:dict):
                                    ,turing_machine_dictionary[BLANK_SYMBOL]) == False):
         raise TypeError("Blank symbol is not in the alphabet")
     
+    #check if any symbol in the input is not in the alphabet
+    if(is_symbol_in_alphabet(turing_machine_dictionary[TAPE_ALPHABET]
+                                ,turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]) == False):
+        raise TypeError("Any symbol is not in the alphabet")
+    
     #check input is in the alphabet
     input_in_alphabet_status = input_in_alphabet(turing_machine_dictionary[TAPE_ALPHABET]
                                           ,turing_machine_dictionary[INPUT])
@@ -613,13 +621,22 @@ def execute_to_next_state(turing_machine_dictionary:dict):
     #For the given current state and alpabet we see the transition in the table
     state_transition_table = turing_machine_dictionary[STATE_TRANSITION_TABLE]
     #if the state of state+ alphabet do not exist then raise an exception
+    effective_alphabet = current_alphabet
+    
     if(state_transition_table.get(current_state) is None):
         raise Exception("Current state "+current_state+" not in state transition table")
+    
     if(state_transition_table[current_state].get(current_alphabet) is None):
-        raise Exception("Current alphabet "+current_alphabet+" not in state transition table for state "
-                        +current_state)
+        if(state_transition_table[current_state].get(turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]) is None):
+            raise Exception("Current alphabet "+current_alphabet+
+                            " not in state transition table for state (including any character) "
+                            +current_state)
+        else:
+            effective_alphabet = turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]
+    
+            
     #get the new state, alphabet and shift direction
-    current_state_transition = state_transition_table[current_state][current_alphabet]
+    current_state_transition = state_transition_table[current_state][effective_alphabet]
     new_state = current_state_transition[NEW_STATE]
     new_alphabet = current_state_transition[NEW_ALPHABET]
     shift_direction = current_state_transition[SHIFT]
@@ -666,7 +683,7 @@ def get_turing_machine_print_string(turing_machine_dictionary:dict):
     Returns:
         tuple:
             - print_string (str): A string showing the current state and tape, with the tape head highlighted.
-            - white_spaces (int): The number of characters before the tape head (used for formatting output).
+            - head_position (int): The number of characters before the tape head (used for formatting output).
     Comments:
         - Highlights the tape head using provided color codes.
         - Also provides the position of the tape head in the output string.
@@ -681,8 +698,8 @@ def get_turing_machine_print_string(turing_machine_dictionary:dict):
     print_tape = tape[:position]+tape_char+ tape[position+1:]
     print_string = current_state+" "+print_tape
     #Also find the location of the head in the tape
-    white_spaces = len(current_state) + 1 + position  
-    return(print_string,white_spaces)
+    head_position = len(current_state) + 1 + position  
+    return(print_string,head_position)
 
 
 def print_turing_machine(turing_machine_dictionary):
@@ -691,9 +708,9 @@ def print_turing_machine(turing_machine_dictionary):
     Args:
         turing_machine_dictionary (dict): The dictionary representing the Turing machine.
     """
-    print_string,white_spaces = get_turing_machine_print_string(turing_machine_dictionary)
+    print_string,head_position = get_turing_machine_print_string(turing_machine_dictionary)
     print(print_string)
-    print(WHITE_SPACE*white_spaces+TAPE_HEAD_MARKET)
+    print(WHITE_SPACE*head_position+TAPE_HEAD_MARKET)
 
 
 def execute_turing_machine(turing_machine_dictionary):
@@ -750,7 +767,12 @@ def execute_turing_machine(turing_machine_dictionary):
             break
     #Print final state of the Turing machine before termination
     print_turing_machine(turing_machine_dictionary)
-
+    
+    print("Turning Machine : "+turing_machine_dictionary[TURING_MACHINE_NAME_KEY])
+    print("Turning Machine Description : "+turing_machine_dictionary[TURING_MACHINE_DESCRIPTION])
+    print("Turing Machine has halted in state: "+ turing_machine_dictionary[CURRENT_STATE])
+    print("Initial Input    :   "+ turing_machine_dictionary[INPUT])
+    print("Final Output     :   "+ turing_machine_dictionary[TAPE])
 
 def run(turing_machine_file:str=None):
     
@@ -758,6 +780,7 @@ def run(turing_machine_file:str=None):
     file_lines = remove_comments_and_empty_lines_from_list(file_lines)
     turing_machine_dictionary = convert_list_into_dictionary(file_lines)
     validate_turing_machine(turing_machine_dictionary)
+    print(json.dumps(turing_machine_dictionary,indent=4))
     execute_turing_machine(turing_machine_dictionary)
     
     
@@ -769,8 +792,6 @@ def main():
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        print(f"Arguments passed: {sys.argv[1:]}")
-        print(f"First argument: {sys.argv[1]}")
         run(sys.argv[1])
     else:
         print("Please Pass file Name as an argument")

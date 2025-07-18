@@ -1,11 +1,14 @@
-Name = Flips the bits of the input string
-Description = Flips 0 to 1 and 1 to in an input string until it reaches the end of the string.
+Name = Four State busy beaver machine.
+Description = Implementation of a 4 state busy beaver machine.
 
 #The initial input alphabet
-Tape_Alphabet = 0,1
+Tape_Alphabet = 0,1,?
 
 #Blank Symbol of tape
 Blank_Symbol = 0
+
+#Maps to any symbol
+Any_Symbol_Wild_Card =?
 
 #Initial input String
 Input = 0000000000000000000
