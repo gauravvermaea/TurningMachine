@@ -260,7 +260,14 @@ Current position on the tape
 '''
 CURRENT_POSITION = "Current_Position"
 
+'''
+Color to be shown for current tape head (Red)
+'''
 COLOR_FOR_CURRENT_TAPE_HEAD = "\033[31m"
+
+'''
+Color to reset the color of the terminal
+'''
 COLOR_TO_RESET = "\033[0m"
 
 '''
@@ -275,9 +282,25 @@ TAPE_HEAD_MARKET = "^"
 
 '''
 Number of columns expected in each row of state transition table
+These are S.No, Current State, Current Alphabet, New Alphabet, New State, Shift
 '''
 NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE = 6
 
+
+'''
+The key to be used for execution counter
+'''
+EXECUTION_COUNTER = "Execution_Counter"
+
+'''
+Initial value of the execution counter
+'''
+EXECUTION_COUNTER_INITIAL_VALUE = 0
+
+'''
+Increment value for the execution counter
+'''
+EXECUTION_COUNTER_INCREMENT = 1
 def read_file_into_list(file_path:str)->list:
     """
     Reads the contents of a file and returns a list of its lines.
@@ -298,7 +321,19 @@ def read_file_into_list(file_path:str)->list:
         #Hence no need to explicitly close the file or exception handeling
         return f.readlines()
 
+def print_file(file:list):
+    """
+    Prints each line from the provided list of file lines.
 
+    Args:
+        file (list): List of strings, each representing a line from a file.
+
+    Returns:
+        None
+    """
+    for line in file:
+        print(line)
+    
 def remove_comments_and_empty_lines_from_list(lst:list[str])->list[str]:
     """
     Removes comment lines (starting with '#') and empty lines from a list of strings.
@@ -709,6 +744,30 @@ def execute_to_next_state(turing_machine_dictionary:dict):
         turing_machine_dictionary[TAPE] = tape
 
 
+def get_turing_machine_state_transition_map(turing_machine_dictionary:dict)->dict:
+    
+    #Find the current state and the current alphabet of the turing machine
+    current_state = turing_machine_dictionary[CURRENT_STATE]
+    current_alphabet = turing_machine_dictionary[TAPE][int(turing_machine_dictionary[CURRENT_POSITION])]
+    #For the given current state and alpabet we see the transition in the table
+    state_transition_table = turing_machine_dictionary[STATE_TRANSITION_TABLE]
+    #if the state of state+ alphabet do not exist then raise an exception
+    effective_alphabet = current_alphabet
+    
+    if(state_transition_table.get(current_state) is None):
+        return {}
+    
+    if(state_transition_table[current_state].get(current_alphabet) is None):
+        if(state_transition_table[current_state].get(turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]) is None):
+            return {}
+        else:
+            effective_alphabet = turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]
+    
+            
+    #get the new state, alphabet and shift direction
+    current_state_transition = state_transition_table[current_state][effective_alphabet]
+    return current_state_transition
+
 def get_turing_machine_print_string(turing_machine_dictionary:dict):
     """
     Generates a formatted string representation of the current state of a Turing machine.
@@ -737,7 +796,8 @@ def get_turing_machine_print_string(turing_machine_dictionary:dict):
     #The current position of the head is highlighted in the tape
     tape_char = COLOR_FOR_CURRENT_TAPE_HEAD + tape[position]+COLOR_TO_RESET
     print_tape = tape[:position]+tape_char+ tape[position+1:]
-    print_string = current_state+" "+print_tape
+    print_string = current_state+" "+print_tape +" ==> " +str(get_turing_machine_state_transition_map(turing_machine_dictionary))
+    
     #Also find the location of the head in the tape
     head_position = len(current_state) + 1 + position  
     return(print_string,head_position)
@@ -749,8 +809,12 @@ def print_turing_machine(turing_machine_dictionary):
     Args:
         turing_machine_dictionary (dict): The dictionary representing the Turing machine.
     """
+    
+    execution_counter = turing_machine_dictionary[EXECUTION_COUNTER]
+    lenth_of_execution_counter = len(str(execution_counter))
     print_string,head_position = get_turing_machine_print_string(turing_machine_dictionary)
-    print(print_string)
+    print(str(execution_counter) + " : " +print_string)
+    head_position = head_position+ lenth_of_execution_counter + 3  # +3 for the colon and space
     print(WHITE_SPACE*head_position+TAPE_HEAD_MARKET)
 
 
@@ -797,12 +861,17 @@ def execute_turing_machine(turing_machine_dictionary):
     position = turing_machine_dictionary[POSITION]
     current_position = position
     turing_machine_dictionary[CURRENT_POSITION] = current_position
-
+    turing_machine_dictionary[EXECUTION_COUNTER] = EXECUTION_COUNTER_INITIAL_VALUE
     while(True):
         #Print the current state of the Turing machine
         print_turing_machine(turing_machine_dictionary)
         #execute the next state transition
         execute_to_next_state(turing_machine_dictionary)
+        #increment the execution counter
+        #This is used to track the number of transitions executed
+        incremented_execution_counter = int(turing_machine_dictionary[EXECUTION_COUNTER])+ EXECUTION_COUNTER_INCREMENT
+        turing_machine_dictionary[EXECUTION_COUNTER] = str(incremented_execution_counter)
+        
         #Is the machine in halted state? If so break
         if(is_given_state_in_states(halt_states,turing_machine_dictionary[CURRENT_STATE]) == True):
             break
@@ -812,12 +881,15 @@ def execute_turing_machine(turing_machine_dictionary):
     print("Turning Machine : "+turing_machine_dictionary[TURING_MACHINE_NAME_KEY])
     print("Turning Machine Description : "+turing_machine_dictionary[TURING_MACHINE_DESCRIPTION])
     print("Turing Machine has halted in state: "+ turing_machine_dictionary[CURRENT_STATE])
+    print("Number of execution cycles (Time Complexcity) : "+ str(turing_machine_dictionary[EXECUTION_COUNTER]))
+    print("Tape Used (Space Complexcity) : "+ str(len(turing_machine_dictionary[TAPE])))
     print("Initial Input    :   "+ turing_machine_dictionary[INPUT])
     print("Final Output     :   "+ turing_machine_dictionary[TAPE])
 
 def run(turing_machine_file:str=None):
     
     file_lines = read_file_into_list(turing_machine_file)
+    print_file(file_lines)
     file_lines = remove_comments_and_empty_lines_from_list(file_lines)
     turing_machine_dictionary = convert_list_into_dictionary(file_lines)
     validate_turing_machine(turing_machine_dictionary)
