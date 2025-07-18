@@ -246,6 +246,7 @@ Chaaracter to print when prnting tape head
 '''
 TAPE_HEAD_MARKET = "^"
 
+
 def read_file_into_list(file_path:str)->list:
     """
     Reads the contents of a file and returns a list of its lines.
@@ -266,6 +267,7 @@ def read_file_into_list(file_path:str)->list:
         #Hence no need to explicitly close the file or exception handeling
         return f.readlines()
 
+
 def remove_comments_and_empty_lines_from_list(lst:list[str])->list[str]:
     """
     Removes comment lines (starting with '#') and empty lines from a list of strings.
@@ -285,6 +287,7 @@ def remove_comments_and_empty_lines_from_list(lst:list[str])->list[str]:
             new_list.append(line.strip())
     return new_list
 
+
 def add_turing_machine_element_to_dictionary(turing_machine_dictionary:dict, key:str, value:str):
     #In this code we do all the magic number and string code.
     #In an ideal world this mapping should be done in a config file
@@ -295,6 +298,7 @@ def add_turing_machine_element_to_dictionary(turing_machine_dictionary:dict, key
         turing_machine_dictionary[key] = value
     elif(key in turing_machine_array_key_names):
         turing_machine_dictionary[key] = value.split(ARRAY_SEPERATOR)
+
 
 def add_or_get_state_transition_table_node(turing_machine_dictionary:dict)->dict:
     """
@@ -317,6 +321,7 @@ def add_or_get_state_transition_table_node(turing_machine_dictionary:dict)->dict
         #And then return it
     return turing_machine_dictionary[STATE_TRANSITION_TABLE]
 
+
 def add_or_get_current_node(state_transition_table:dict,current_state:str)->dict:
     """
     Retrieves the transition dictionary for the given current state from the state transition table.
@@ -334,6 +339,7 @@ def add_or_get_current_node(state_transition_table:dict,current_state:str)->dict
         #if not then create it
         state_transition_table[current_state] = {}
     return state_transition_table[current_state]
+
 
 def add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dictionary:dict
                                                             , state_transition_entry:str):
@@ -382,6 +388,7 @@ def add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dicti
                         + parts[CURRENT_STATE_COLUMN] + " and Alphabet: " 
                         + parts[CURRENT_ALPHABET_COLUMN] )
 
+
 def convert_list_into_dictionary(lst:list[str])->dict:
     """
     Converts the file read into the list into a dictionary that represents the Turing machine.
@@ -415,6 +422,7 @@ def convert_list_into_dictionary(lst:list[str])->dict:
             
     return turing_machine_dictionary
 
+
 def is_symbol_in_alphabet(alphabet:list[str],symbol:str)->bool:
     """
     Checks if the  symbol is in the alphabet
@@ -425,6 +433,7 @@ def is_symbol_in_alphabet(alphabet:list[str],symbol:str)->bool:
         bool: True if the  symbol is in the alphabet, False otherwise
     """
     return symbol in alphabet
+
 
 def input_in_alphabet(alphabet:list[str],input:str):
     """
@@ -446,6 +455,7 @@ def input_in_alphabet(alphabet:list[str],input:str):
     
     return (input_in_alphabet,char)
 
+
 def is_given_state_in_states(states:list[str],initial_state:str):
     """
     Checks if the  state is in the states
@@ -456,6 +466,7 @@ def is_given_state_in_states(states:list[str],initial_state:str):
         bool: True if the initial state is in the states, False otherwise
     """
     return initial_state in states
+
 
 def is_state_list_in_states(states:list[str],states_to_check:str):
     """
@@ -477,6 +488,8 @@ def is_state_list_in_states(states:list[str],states_to_check:str):
             break
     
     return (final_states_in_states,state)
+
+
 def is_valid_state_transition_table(turing_machine_dictionary:dict):
     state_transition_table = turing_machine_dictionary[STATE_TRANSITION_TABLE]
     for current_state in state_transition_table.keys():
@@ -515,6 +528,8 @@ def is_valid_state_transition_table(turing_machine_dictionary:dict):
                                                             +" and alphabet "+current_alphabet)     
             
     return (True,None)
+
+
 def validate_turing_machine(turing_machine_dictionary:dict):
     """
     Validates the structure and contents of a Turing machine definition provided as a dictionary.
@@ -568,6 +583,8 @@ def validate_turing_machine(turing_machine_dictionary:dict):
     state_transition_validation_status = is_valid_state_transition_table(turing_machine_dictionary)
     if(state_transition_validation_status[0] == False):
         raise TypeError("State transition table is not valid. "+state_transition_validation_status[1])
+
+
 def execute_to_next_state(turing_machine_dictionary:dict):
     """
     Executes a single transition of the Turing machine, updating its state, tape, and head position.
@@ -632,6 +649,8 @@ def execute_to_next_state(turing_machine_dictionary:dict):
     if(int(turing_machine_dictionary[CURRENT_POSITION]) == len(turing_machine_dictionary[TAPE])):
         tape = tape + turing_machine_dictionary[BLANK_SYMBOL]
         turing_machine_dictionary[TAPE] = tape
+
+
 def get_turing_machine_print_string(turing_machine_dictionary:dict):
     """
     Generates a formatted string representation of the current state of a Turing machine.
@@ -664,6 +683,8 @@ def get_turing_machine_print_string(turing_machine_dictionary:dict):
     #Also find the location of the head in the tape
     white_spaces = len(current_state) + 1 + position  
     return(print_string,white_spaces)
+
+
 def print_turing_machine(turing_machine_dictionary):
     """
     Prints the current state and tape of the Turing machine, highlighting the tape head position.
@@ -673,6 +694,8 @@ def print_turing_machine(turing_machine_dictionary):
     print_string,white_spaces = get_turing_machine_print_string(turing_machine_dictionary)
     print(print_string)
     print(WHITE_SPACE*white_spaces+TAPE_HEAD_MARKET)
+
+
 def execute_turing_machine(turing_machine_dictionary):
     """
     Executes a Turing machine simulation using the provided configuration dictionary.
@@ -727,6 +750,8 @@ def execute_turing_machine(turing_machine_dictionary):
             break
     #Print final state of the Turing machine before termination
     print_turing_machine(turing_machine_dictionary)
+
+
 def run(turing_machine_file:str=None):
     
     file_lines = read_file_into_list(turing_machine_file)
@@ -734,9 +759,13 @@ def run(turing_machine_file:str=None):
     turing_machine_dictionary = convert_list_into_dictionary(file_lines)
     validate_turing_machine(turing_machine_dictionary)
     execute_turing_machine(turing_machine_dictionary)
+    
+    
 def main():
     file_path = "/home/gaurav/code/add.tm"
     run(file_path)
+
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
