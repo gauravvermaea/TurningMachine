@@ -10,6 +10,10 @@ Very descriptive and detailed. Works better than most of the projects I found ou
 python3 Turing.py <path_turing_machine_file> <optional delay in seconds>
 
 example
+
 python3 Turing.py ./flib_bits.tm 1.0
+
+
+python3 Turing.py ./flib_bits.tm 
 
 The sample files are descriptive enough to use. The code is well documented to change.
