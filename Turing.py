@@ -585,7 +585,6 @@ def is_valid_state_transition_table(turing_machine_dictionary:dict):
             new_state = current_state_alphabet_transtion[NEW_STATE]
             shift_direction = current_state_alphabet_transtion[SHIFT]
             
-            
             #Check new alphabet in turing machine
             if(is_symbol_in_alphabet(turing_machine_dictionary[TAPE_ALPHABET],new_alphabet) == False):
                 return (False,new_alphabet+" not in " + str(turing_machine_dictionary[TAPE_ALPHABET])
