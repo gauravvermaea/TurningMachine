@@ -954,7 +954,7 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
         time.sleep(delay)    
     print("Final Output     :   "+ turing_machine_dictionary[TAPE])
 
-def run(turing_machine_file:str=None, delay:float=0):
+def main(turing_machine_file:str=None, delay:float=0):
     """
     Executes a Turing machine simulation based on the provided configuration file.
     Args:
@@ -996,7 +996,7 @@ if __name__ == "__main__":
         if(len(sys.argv) == 3):
             delay = float(sys.argv[2])
         #Run the Turing machine simulation with the provided file name and optional delay
-        run(file_name,delay)    
+        main(file_name,delay)    
     else:
         #If the script is run without arguments, it prints a message to the console
         print("Please Pass file Name and optional delay in seconds between each step of the simulation")
