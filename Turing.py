@@ -302,6 +302,8 @@ EXECUTION_COUNTER_INITIAL_VALUE = 0
 Increment value for the execution counter
 '''
 EXECUTION_COUNTER_INCREMENT = 1
+
+
 def read_file_into_list(file_path:str)->list:
     """
     Reads the contents of a file and returns a list of its lines.
@@ -522,6 +524,8 @@ def input_in_alphabet(alphabet:list[str],input:str):
     input_in_alphabet = True
     char = None
     for input_char in input:
+        #Check each input charecter in string is in the alphabet
+        #If not raise error with details of which charecter is not in the alphabet
         if(input_char not in alphabet):
             input_in_alphabet = False
             char = input_char
@@ -556,6 +560,8 @@ def is_state_list_in_states(states:list[str],states_to_check:str):
     final_states_in_states = True
     state = None
     for current_state in states_to_check:
+        #Check each state is in the master list if not return details
+        #which state is not in the states
         if(current_state not in states):
             final_states_in_states = False
             state = current_state
@@ -565,6 +571,25 @@ def is_state_list_in_states(states:list[str],states_to_check:str):
 
 
 def is_valid_state_transition_table(turing_machine_dictionary:dict):
+    """
+    Validates the state transition table of a Turing machine.
+    This function checks whether the state transition table provided in the
+    `turing_machine_dictionary` is valid according to the following criteria:
+        - All states referenced in the transition table exist in the set of states.
+        - All tape symbols referenced in the transition table exist in the tape alphabet.
+        - All new symbols written during transitions exist in the tape alphabet.
+        - All new states referenced during transitions exist in the set of states.
+        - All shift directions used in transitions are valid (left, right, or no shift).
+    Args:
+        turing_machine_dictionary (dict): A dictionary containing the Turing machine
+            specification. It must include keys for states, tape alphabet, state
+            transition table, and shift symbols.
+    Returns:
+        tuple:
+            - bool: True if the state transition table is valid, False otherwise.
+            - str or None: If invalid, a message describing the error; otherwise, None.
+    """
+    
     state_transition_table = turing_machine_dictionary[STATE_TRANSITION_TABLE]
     for current_state in state_transition_table.keys():
         #Check if the current state is in states
@@ -745,6 +770,28 @@ def execute_to_next_state(turing_machine_dictionary:dict):
 
 
 def get_turing_machine_state_transition_map(turing_machine_dictionary:dict)->dict:
+    """
+    Retrieves the state transition mapping for a Turing machine based on its current state and tape symbol.
+    The function examines the current state and the symbol under the tape head, then looks up the corresponding
+    transition in the state transition table. If a direct match is not found, it checks for a wildcard symbol.
+    If no valid transition exists, an empty dictionary is returned.
+    
+    The purpose of this method is for debugging
+    Args:
+        turing_machine_dictionary (dict): 
+            A dictionary representing the Turing machine, expected to contain the following keys:
+                - CURRENT_STATE: The current state of the Turing machine.
+                - TAPE: The tape as a list or string of symbols.
+                - CURRENT_POSITION: The current position of the tape head (as an integer or string convertible to int).
+                - STATE_TRANSITION_TABLE: A nested dictionary mapping states and symbols to transitions.
+                - ANY_SYMBOL_WILD_CARD: The symbol used as a wildcard for transitions.
+    Returns:
+        dict: The transition mapping for the current state and symbol, typically containing:
+            - The next state.
+            - The symbol to write.
+            - The direction to move the tape head.
+        Returns an empty dictionary if no valid transition is found.
+    """
     
     #Find the current state and the current alphabet of the turing machine
     current_state = turing_machine_dictionary[CURRENT_STATE]
@@ -758,7 +805,8 @@ def get_turing_machine_state_transition_map(turing_machine_dictionary:dict)->dic
         return {}
     
     if(state_transition_table[current_state].get(current_alphabet) is None):
-        if(state_transition_table[current_state].get(turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]) is None):
+        if(state_transition_table[current_state].get(
+            turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]) is None):
             return {}
         else:
             effective_alphabet = turing_machine_dictionary[ANY_SYMBOL_WILD_CARD]
@@ -907,29 +955,49 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
     print("Final Output     :   "+ turing_machine_dictionary[TAPE])
 
 def run(turing_machine_file:str=None, delay:float=0):
+    """
+    Executes a Turing machine simulation based on the provided configuration file.
+    Args:
+        turing_machine_file (str, optional): Path to the Turing machine configuration file. Defaults to None.
+        delay (float, optional): Delay in seconds between each step of the simulation. Defaults to 0.
+    Raises:
+        ValueError: If the Turing machine configuration is invalid.
+    Side Effects:
+        - Prints the contents of the configuration file.
+        - Prints the parsed Turing machine dictionary in JSON format.
+        - Executes the Turing machine simulation with optional delay.
+    """
+    #Read the Turing machine file into a list of lines
     file_lines = read_file_into_list(turing_machine_file)
+    #Print the file lines for debugging
     print_file(file_lines)
+    #Remove comments and empty lines from the list of lines
     file_lines = remove_comments_and_empty_lines_from_list(file_lines)
+    #Convert this list into a dictionary which represents the Turing machine
     turing_machine_dictionary = convert_list_into_dictionary(file_lines)
+    #Validate the Turing machine dictionary
     validate_turing_machine(turing_machine_dictionary)
+    #Print the Turing machine dictionary in JSON format for debugging and checking if file was
+    #Correctly parsed
     print(json.dumps(turing_machine_dictionary,indent=4))
+    #Execute the Turing machine simulation
     execute_turing_machine(turing_machine_dictionary,delay)
     
-    
-def main():
-    file_path = "/home/gaurav/code/add.tm"
-    run(file_path)
-
-
 
 if __name__ == "__main__":
+    
+    # Entry point for the script
+    # This block checks if the script is being run directly (not imported as a module)
     if len(sys.argv) > 1:
-        
+        #If the script is run with arguments, it expects the file name to be the first argument
+        #The second argument is optional and represents the delay in seconds between each step of the simulation
         file_name = sys.argv[1]
         delay = 0.0
         if(len(sys.argv) == 3):
             delay = float(sys.argv[2])
+        #Run the Turing machine simulation with the provided file name and optional delay
         run(file_name,delay)    
     else:
-        print("Please Pass file Name as an argument and optional delay")
+        #If the script is run without arguments, it prints a message to the console
+        print("Please Pass file Name and optional delay in seconds between each step of the simulation")
         
