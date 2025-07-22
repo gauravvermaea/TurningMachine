@@ -1,7 +1,8 @@
 import sys
 import json
 import time
-#This code has been written in a single file so that
+#This code has been written in a single file so that it is easy to run from command line
+#without too many complexcities and dependencies
 #Further a structured programming approch is taken over
 #OO on account of simplicity and ease of understanding
 #and given the complexcity of this code
@@ -78,6 +79,8 @@ S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_
 #or a constants or a config file. However in interest of
 #keeping code in one file we are making them constants
 
+
+### Starting constants that are applicable to file reading and parsing
 '''
 The key to split key value pairs in line
 '''
@@ -231,6 +234,8 @@ The column number for shift direction in the state transition table
 '''
 SHIFT_COLUMN = 5
 
+### Ending constants that are applicable to file reading and parsing
+
 '''
 The key name for new alphabet
 '''
@@ -358,6 +363,18 @@ def remove_comments_and_empty_lines_from_list(lst:list[str])->list[str]:
 
 
 def add_turing_machine_element_to_dictionary(turing_machine_dictionary:dict, key:str, value:str):
+    """
+    Adds an element to the Turing machine dictionary based on the provided key and value.
+    If the key is found in `turing_machine_simple_key_names`, the value is added directly as a key-value pair.
+    If the key is found in `turing_machine_array_key_names`, the value is split using `ARRAY_SEPERATOR` and stored as a list.
+    Args:
+        turing_machine_dictionary (dict): The dictionary representing the Turing machine configuration.
+        key (str): The key to add or update in the dictionary.
+        value (str): The value to associate with the key. If the key requires an array, this should be a separator-delimited string.
+    Returns:
+        None
+        """
+    
     #In this code we do all the magic number and string code.
     #In an ideal world this mapping should be done in a config file
     #However as we want to keep things in one file we will use constants
@@ -775,6 +792,9 @@ def get_turing_machine_state_transition_map(turing_machine_dictionary:dict)->dic
     The function examines the current state and the symbol under the tape head, then looks up the corresponding
     transition in the state transition table. If a direct match is not found, it checks for a wildcard symbol.
     If no valid transition exists, an empty dictionary is returned.
+    
+    This function is only for interogation and not state change.
+    It does not modify the Turing machine's state or tape; it simply retrieves the transition
     
     The purpose of this method is for debugging
     Args:
