@@ -963,8 +963,15 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0, is_deb
             print("p:<number of steps> -> to go back n steps, lowest step number will be 0")
             print("g:<step number> -> goto step number")
             print("e -> execute the rest of machine without break")
-
+            print("p -> prints the current state of the Turing machine step")
+            print("d -> dumps turing machine state to console")
             user_input_string = input("Enter your command: ")
+            
+            if(user_input_string == "d"):
+                print(json.dumps(turing_machine_dictionary,indent=4))
+            
+            if(user_input_string == "p"):
+                print_turing_machine(turing_machine_dictionary)
             
             if(user_input_string == "n"):
                 if_debug_input_found = True
