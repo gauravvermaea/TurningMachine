@@ -33,11 +33,13 @@ There are no assumptions made in this code, which was a big problem for anything
 Very descriptive and detailed. Works better than most of the projects I found out there.
 
 # How To use
-python3 Turing.py <path_turing_machine_file> <optional delay in seconds>
+python3 Turing.py <path_turing_machine_file> <optional delay in seconds> / debug
 
 example
 
 python3 Turing.py ./flib_bits.tm 1.0
+python3 Turing.py add.tm debug
+
 
 
 python3 Turing.py ./flib_bits.tm 
