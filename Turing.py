@@ -965,10 +965,14 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0, is_deb
             print("e -> execute the rest of machine without break")
             print("p -> prints the current state of the Turing machine step")
             print("d -> dumps turing machine state to console")
+            print("h-> dumps history of all turing machine states to console")
             user_input_string = input("Enter your command: ")
             
             if(user_input_string == "d"):
                 print(json.dumps(turing_machine_dictionary,indent=4))
+                
+            if(user_input_string == "h"):
+                print(json.dumps(state_dictonary,indent=4))    
             
             if(user_input_string == "p"):
                 print_turing_machine(turing_machine_dictionary)
