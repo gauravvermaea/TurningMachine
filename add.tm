@@ -8,7 +8,7 @@ Tape_Alphabet = 0,c,#,x,d,?
 Blank_Symbol = #
 
 #Initial input String
-Input = 00c00
+Input = 00c000
 
 #Initial head position on input string, count starts with 0
 Position=0

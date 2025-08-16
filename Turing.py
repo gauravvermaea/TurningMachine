@@ -1,6 +1,7 @@
 import sys
 import json
 import time
+import copy
 #This code has been written in a single file so that it is easy to run from command line
 #without too many complexcities and dependencies
 #Further a structured programming approch is taken over
@@ -308,6 +309,12 @@ Increment value for the execution counter
 '''
 EXECUTION_COUNTER_INCREMENT = 1
 
+'''
+The dictionary that will hold the state of turning machine per execution cycle.
+This will be used to go back and forward in the turing machine execution during
+debugging
+'''
+state_dictonary = {}
 
 def read_file_into_list(file_path:str)->list:
     """
@@ -886,7 +893,7 @@ def print_turing_machine(turing_machine_dictionary):
     print(WHITE_SPACE*head_position+TAPE_HEAD_MARKET)
 
 
-def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
+def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0, is_debug_mode:bool=False):
     """
     Executes a Turing machine simulation using the provided configuration dictionary.
     Args:
@@ -905,7 +912,8 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
                 - EXECUTION_COUNTER: (will be set) The execution counter.
         delay(float):
             Optional delay in seconds between each step of the Turing machine execution.
-    Side Effects:
+        is_debug_mode (bool):
+            Optional flag to enable debug mode, allowing user interaction for stepping through the execution.
         - Updates the turing_machine_dictionary with the current state, tape, and position.
         - Prints the Turing machine's state at each step.
     Behavior:
@@ -928,14 +936,78 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
     halt_states = turing_machine_dictionary[FINAL_STATES]
     current_state = intial_state
     turing_machine_dictionary[CURRENT_STATE] = current_state
-    input = turing_machine_dictionary[INPUT]
-    tape = input
+    input_of_tape = turing_machine_dictionary[INPUT]
+    tape = input_of_tape
     turing_machine_dictionary[TAPE] = tape
     position = turing_machine_dictionary[POSITION]
     current_position = position
     turing_machine_dictionary[CURRENT_POSITION] = current_position
     turing_machine_dictionary[EXECUTION_COUNTER] = EXECUTION_COUNTER_INITIAL_VALUE
+    
+    #If the machine is running in debug mode then we set the delay to 0
+    #This is useful for debugging and testing the Turing machine
+    if(is_debug_mode == True):
+        delay =0.0
+    
     while(True):
+        
+        #if the machine is in debug mode then we expect useer to
+        #goto next setp, go to previous steps with a count of n
+        
+        #This indecates that users valid input is not found
+        if_debug_input_found = False
+        while((if_debug_input_found == False) and (is_debug_mode == True)):
+            current_step = turing_machine_dictionary[EXECUTION_COUNTER]
+            print("Now executing step : " + str(current_step))
+            print("n -> next step")
+            print("p:<number of steps> -> to go back n steps, lowest step number will be 0")
+            print("g:<step number> -> goto step number")
+            print("e -> execute the rest of machine without break")
+
+            user_input_string = input("Enter your command: ")
+            
+            if(user_input_string == "n"):
+                if_debug_input_found = True
+                break
+            
+            if(user_input_string == "e"):
+                if_debug_input_found = True
+                is_debug_mode = False
+            
+            if(user_input_string.startswith("p:")):
+                #If the user wants to go back n steps
+                current_step = int(current_step) - int(user_input_string[2:])
+                if(current_step <= 0):
+                    current_step = 0
+                
+                if_debug_input_found = True
+                
+                #now we need to set the turing machine dictionary to the state
+                if(state_dictonary == {}):
+                    pass
+                else:
+                    reset_state = state_dictonary[str(current_step)]
+                    turing_machine_dictionary = reset_state
+                
+            if(user_input_string.startswith("g:")): 
+                #If the user wants to go to a specific step
+                current_step = int(user_input_string[2:])
+                if(current_step <= 0):
+                    current_step = 0
+                    
+                if_debug_input_found = True
+                
+                #now we need to set the turing machine dictionary to the state
+                if(state_dictonary == {}):
+                    pass
+                else:
+                    print("going to step "+ str(current_step))
+                    reset_state = state_dictonary[str(current_step)]
+                    turing_machine_dictionary = reset_state
+        
+        #Store the current state of the Turing machine in a dictionary
+        #This can be used to go back and forward in the execution
+        state_dictonary[turing_machine_dictionary[EXECUTION_COUNTER]] = copy.deepcopy(turing_machine_dictionary)
         #Print the current state of the Turing machine
         print_turing_machine(turing_machine_dictionary)
         #execute the next state transition
@@ -974,12 +1046,13 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0):
         time.sleep(delay)    
     print("Final Output     :   "+ turing_machine_dictionary[TAPE])
 
-def main(turing_machine_file:str=None, delay:float=0):
+def main(turing_machine_file:str=None, delay:float=0, isDebugMode:bool=False):
     """
     Executes a Turing machine simulation based on the provided configuration file.
     Args:
         turing_machine_file (str, optional): Path to the Turing machine configuration file. Defaults to None.
         delay (float, optional): Delay in seconds between each step of the simulation. Defaults to 0.
+        isDebugMode (bool, optional): Flag to enable debug mode, allowing user interaction for stepping through the execution. Defaults to False.
     Raises:
         ValueError: If the Turing machine configuration is invalid.
     Side Effects:
@@ -1001,7 +1074,7 @@ def main(turing_machine_file:str=None, delay:float=0):
     #Correctly parsed
     print(json.dumps(turing_machine_dictionary,indent=4))
     #Execute the Turing machine simulation
-    execute_turing_machine(turing_machine_dictionary,delay)
+    execute_turing_machine(turing_machine_dictionary,delay,isDebugMode)
     
 
 if __name__ == "__main__":
@@ -1013,11 +1086,17 @@ if __name__ == "__main__":
         #The second argument is optional and represents the delay in seconds between each step of the simulation
         file_name = sys.argv[1]
         delay = 0.0
+        is_debug_mode = False
         if(len(sys.argv) == 3):
-            delay = float(sys.argv[2])
+            if(sys.argv[2] == "debug"):
+                is_debug_mode = True
+            else:
+                delay = float(sys.argv[2])
         #Run the Turing machine simulation with the provided file name and optional delay
-        main(file_name,delay)    
+       
+        main(file_name,delay,is_debug_mode)    
     else:
         #If the script is run without arguments, it prints a message to the console
         print("Please Pass file Name and optional delay in seconds between each step of the simulation")
+        #main("/home/gaurav/code/TuringMachine/add.tm",0.0,True)
         
