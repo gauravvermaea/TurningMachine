@@ -1108,7 +1108,8 @@ if __name__ == "__main__":
         main(file_name,delay,is_debug_mode)    
     else:
         #If the script is run without arguments, it prints a message to the console
-        print("usage: python3 Turing.py <turing_machine_file> [delay]  / [debug]")
+        print("usage: python3 Turing.py <turing_machine_file> [delay]  [debug]")
+        print("usage: python3 Turing.py add.tm")
         print("usage: python3 Turing.py add.tm 1.0")
         print("usage: python3 Turing.py add.tm debug")
         #main("/home/gaurav/code/TuringMachine/add.tm",0.0,True)
