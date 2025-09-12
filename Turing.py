@@ -489,6 +489,33 @@ def add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dicti
                         + parts[CURRENT_ALPHABET_COLUMN] )
 
 
+
+def set_defaults_to_turing_machine_dictionary(turing_machine_dictionary:dict):
+    '''
+        Sets default values to the Turing machine dictionary for keys.
+        These values can be overriden based on the turing machine file.
+        The values defaulted are
+            Name - Turning Machine
+            Description - Turning machine
+            Blank_Symbol - #
+            Position - 0
+            Any_Symbol_Wild_Card -?
+            Left_Shift_Symbol - L
+            Right_Shift_Symbol - R
+            No_Shift_Symbol - N
+            
+            Hence with this defaulting a turing machine file can be made smaller
+    '''
+    turing_machine_dictionary[TURING_MACHINE_NAME_KEY] = "Turing Machine"
+    turing_machine_dictionary[TURING_MACHINE_DESCRIPTION] = "Turing machine"
+    turing_machine_dictionary[BLANK_SYMBOL] = "#"
+    turing_machine_dictionary[POSITION] = "0"
+    turing_machine_dictionary[ANY_SYMBOL_WILD_CARD] = "?"
+    turing_machine_dictionary[LEFT_SHIFT_SYMBOL] = "L"
+    turing_machine_dictionary[RIGHT_SHIFT_SYMBOL] = "R"
+    turing_machine_dictionary[NO_SHIFT_SYMBOL] = "N"
+    
+    
 def convert_list_into_dictionary(lst:list[str])->dict:
     """
     Converts the file read into the list into a dictionary that represents the Turing machine.
@@ -504,6 +531,10 @@ def convert_list_into_dictionary(lst:list[str])->dict:
     
     #initialize the turing machine dictionary to blank
     turing_machine_dictionary = {}
+    
+    #Set Defaukts values to Turing machine dictionary
+    set_defaults_to_turing_machine_dictionary (turing_machine_dictionary)
+    
     #For each line in the list
     for line in lst:
         # split the line into parts using the '=' character as the delimiter
