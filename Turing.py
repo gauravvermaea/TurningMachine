@@ -506,11 +506,17 @@ def set_defaults_to_turing_machine_dictionary(turing_machine_dictionary:dict):
             
             Hence with this defaulting a turing machine file can be made smaller
     '''
+    # Set the description
     turing_machine_dictionary[TURING_MACHINE_NAME_KEY] = "Turing Machine"
+    # sett the name
     turing_machine_dictionary[TURING_MACHINE_DESCRIPTION] = "Turing machine"
+    #set what will be the blank symbol on the tape
     turing_machine_dictionary[BLANK_SYMBOL] = "#"
+    #set the initial position of the head on the tape
     turing_machine_dictionary[POSITION] = "0"
+    #set the any symbol wild card
     turing_machine_dictionary[ANY_SYMBOL_WILD_CARD] = "?"
+    #set the left, right and no shift symbols
     turing_machine_dictionary[LEFT_SHIFT_SYMBOL] = "L"
     turing_machine_dictionary[RIGHT_SHIFT_SYMBOL] = "R"
     turing_machine_dictionary[NO_SHIFT_SYMBOL] = "N"
