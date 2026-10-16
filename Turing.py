@@ -253,6 +253,23 @@ The key name for Shift direction
 SHIFT = "Shift"
 
 '''
+The key name for the optional comment of a rule (7th column of the
+state transition table) that describes what the rule does
+'''
+COMMENT = "Comment"
+
+'''
+Lines starting with this marker hold the machine's "how it works"
+explanation. They start with # so they are also ordinary comments.
+'''
+EXPLANATION_LINE_START = "#>"
+
+'''
+The key under which the explanation is stored in the turing machine dictionary
+'''
+EXPLANATION = "How_It_Works"
+
+'''
 The current state of the turing machine
 '''
 CURRENT_STATE = "Current_State"
@@ -349,6 +366,32 @@ def print_file(file:list):
     for line in file:
         print(line)
     
+def extract_explanation(lst:list[str])->str:
+    """
+    Collects the machine's "how it works" explanation: every line that starts
+    with #> (the marker followed by the text). The lines are joined with new
+    lines, in file order. A line with only #> becomes an empty line, which
+    separates paragraphs.
+    This must run before comments are removed, because these lines are comments.
+
+    Args:
+        lst (list): List of strings, the lines of the file.
+
+    Returns:
+        str: The explanation text, or an empty string if there is none.
+    """
+    explanation_lines = []
+    for line in lst:
+        stripped = line.strip()
+        if stripped.startswith(EXPLANATION_LINE_START):
+            #Drop the marker and one following space, keep any further indentation
+            text = stripped[len(EXPLANATION_LINE_START):]
+            if text.startswith(" "):
+                text = text[1:]
+            explanation_lines.append(text)
+    return "\n".join(explanation_lines)
+
+
 def remove_comments_and_empty_lines_from_list(lst:list[str])->list[str]:
     """
     Removes comment lines (starting with '#') and empty lines from a list of strings.
@@ -455,11 +498,20 @@ def add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dicti
     if(state_transition_entry.startswith(STATE_TABLE_HEADER_ENTRY_STARTS_WITH)):
         return
     
-    #split the transtion entry into columns after removing spaces and tabs using
-    #, as a seperator
-    parts = state_transition_entry.strip().replace(" ","").replace("\t","").split(
-        STATE_TRANSITION_ENTRY_SEPERATOR)
-    
+    #split the transtion entry into columns using , as a seperator.
+    #A rule may have an optional 7th column: a free-text comment that describes
+    #what the rule does. Splitting at most 6 times keeps the whole comment in the
+    #last part, so the comment may itself contain commas.
+    raw_parts = state_transition_entry.strip().split(
+        STATE_TRANSITION_ENTRY_SEPERATOR, NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE)
+    comment = ""
+    if(len(raw_parts) > NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE):
+        #The comment keeps its spaces; only leading/trailing whitespace is removed
+        comment = raw_parts[NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE].strip()
+        raw_parts = raw_parts[:NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE]
+    #The six machine columns have all spaces and tabs removed, as before
+    parts = [part.replace(" ","").replace("\t","") for part in raw_parts]
+
     #Check the number of entries are correct in the table
     if(len(parts) != NUMBER_OF_COLUMNS_IN_STATE_TRANSITION_TABLE):
         raise Exception("State transition entry does not have "
@@ -479,7 +531,8 @@ def add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dicti
         current_state_node[parts[CURRENT_ALPHABET_COLUMN]] = {
             NEW_ALPHABET:parts[NEW_ALPHABET_COLUMN],
             NEW_STATE:parts[NEW_STATE_COLUMN],
-            SHIFT:parts[SHIFT_COLUMN]
+            SHIFT:parts[SHIFT_COLUMN],
+            COMMENT:comment
         }
         #else raise an error because a given node and alphabet
         #can not have two entries
@@ -1078,6 +1131,11 @@ def execute_turing_machine(turing_machine_dictionary:str,delay:float=0.0, is_deb
     if(delay>  0):
         time.sleep(delay)
     print("Turning Machine Description : "+turing_machine_dictionary[TURING_MACHINE_DESCRIPTION])
+    #Print the "how it works" explanation if the file has one (#> lines)
+    if(turing_machine_dictionary.get(EXPLANATION)):
+        print("How it works:")
+        for explanation_line in turing_machine_dictionary[EXPLANATION].split("\n"):
+            print("    " + explanation_line)
     if(delay>  0):
         time.sleep(delay)
     print("Turing Machine has halted in state: "+ turing_machine_dictionary[CURRENT_STATE])
@@ -1112,10 +1170,14 @@ def main(turing_machine_file:str=None, delay:float=0, isDebugMode:bool=False):
     file_lines = read_file_into_list(turing_machine_file)
     #Print the file lines for debugging
     print_file(file_lines)
+    #Collect the "how it works" explanation (#> lines) before comments are removed
+    explanation = extract_explanation(file_lines)
     #Remove comments and empty lines from the list of lines
     file_lines = remove_comments_and_empty_lines_from_list(file_lines)
     #Convert this list into a dictionary which represents the Turing machine
     turing_machine_dictionary = convert_list_into_dictionary(file_lines)
+    #Keep the explanation with the machine so it can be printed in the summary
+    turing_machine_dictionary[EXPLANATION] = explanation
     #Validate the Turing machine dictionary
     validate_turing_machine(turing_machine_dictionary)
     #Print the Turing machine dictionary in JSON format for debugging and checking if file was
