@@ -575,6 +575,21 @@ def set_defaults_to_turing_machine_dictionary(turing_machine_dictionary:dict):
     turing_machine_dictionary[NO_SHIFT_SYMBOL] = "N"
     
     
+def is_state_transition_row(line:str)->bool:
+    """
+    Checks if a line is a row of the state transition table: it starts with
+    the serial number (digits) followed by a comma.
+
+    Args:
+        line (str): A line of the file, comments and blank lines already removed.
+
+    Returns:
+        bool: True for a rule row, False otherwise (settings, the S.No header).
+    """
+    first_column = line.split(STATE_TRANSITION_ENTRY_SEPERATOR, 1)[0].strip()
+    return STATE_TRANSITION_ENTRY_SEPERATOR in line and first_column.isdigit()
+
+
 def convert_list_into_dictionary(lst:list[str])->dict:
     """
     Converts the file read into the list into a dictionary that represents the Turing machine.
@@ -596,8 +611,15 @@ def convert_list_into_dictionary(lst:list[str])->dict:
     
     #For each line in the list
     for line in lst:
-        # split the line into parts using the '=' character as the delimiter
-        parts = line.split(LINE_SPLIT_CHAR)
+        #A rule row starts with its serial number and a comma (e.g. "4,Q1,0,x,Q2,R").
+        #Recognise rule rows first, so that an '=' inside a rule (for example in its
+        #comment, "1 + 1 = 10") does not make the line look like "Key = Value".
+        if is_state_transition_row(line):
+            add_turing_machine_state_transition_entry_to_dictionary(turing_machine_dictionary,line)
+            continue
+        # split the line into key and value at the FIRST '=' only, so a value
+        # (such as a description) may itself contain '='
+        parts = line.split(LINE_SPLIT_CHAR, LINE_SPLIT_PARTS - 1)
         # check if the line has exactly two parts
         if len(parts) == LINE_SPLIT_PARTS:
             # assign the first part to the key variable

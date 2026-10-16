@@ -26,7 +26,8 @@ There are no assumptions made in this code, which was a big problem for anything
 18. Code is modular and structured, no OO techniques have been used except from language constructs
 
 
-19. Each rule can have a comment describing what it does, and each machine a "how it works" explanation (see below)
+19. A rule row is recognised by its leading number, so `=` may appear in a rule's comment
+20. Each rule can have a comment describing what it does, and each machine a "how it works" explanation (see below)
 
 # Wish List
 1. ~~Want to run in web~~ Done: see Turing Machine Studio below
@@ -72,17 +73,26 @@ the `#>` lines are ordinary comments to it.)
 
 # Examples
 
+Every example has a "how it works" explanation (`#>` lines) and a comment on every rule.
+
 | File | What it does |
 |---|---|
-| add.tm / add_with_defaults.tm | Adds two unary numbers (`00c000` = 2 + 3); the second relies on the default settings |
+| add.tm | Adds two unary numbers (`00c000` = 2 + 3) |
 | subtract.tm | Subtracts two unary numbers (B - A) |
-| multiply.tm | Multiplies two unary numbers (`00c000` = 2 x 3), leaving only the product on the tape |
-| flip_bits.tm | Inverts a binary string |
-| alternate_0_1.tm | Writes 0101... until the end marker |
-| reverse_string.tm | Reverses a string of a's and b's |
+| multiply.tm | Multiplies two unary numbers (`00c000` = 2 x 3), leaving only the product |
+| divide.tm | Divides unary A by B: quotient after `e`, remainder as `r` marks |
+| square_root.tm | Square root of a unary perfect square (halts in NotSquare otherwise) |
+| unary_compare.tm | Compares two unary numbers: halts in Less, Equal or Greater |
+| binary_increment.tm / binary_decrement.tm | Adds / subtracts 1 in binary (decrement halts in Underflow at 0) |
+| unary_to_binary.tm / binary_to_unary.tm | Converts between unary (I marks) and binary |
+| palindrome.tm | Accepts strings of a's and b's that read the same backwards |
+| balanced_parentheses.tm | Accepts balanced strings of ( and ) |
+| anbn.tm / anbncn.tm | Recognise a^n b^n and a^n b^n c^n (the second is beyond any stack machine) |
 | halt_on_finding_first_a.tm | Two final states: halts in Found_a or Not_Found_a |
+| flip_bits.tm, reverse_string.tm, copy_string.tm, alternate_0_1.tm | String transformations |
 | one_step_halt.tm | One rule, showing the wildcard |
-| three_state_busy_beaver.tm / four_state_busy_beaver.tm | Busy beavers (6 ones in 14 steps; 13 ones in 107 steps). Rule 8 of the 4-state machine is corrected to `D,1,0,A,R` (with `L` it never halts) |
+| three_state_busy_beaver.tm / four_state_busy_beaver.tm | Busy beavers: 6 ones in 14 steps; 13 ones in 107 steps (rule 8 of the 4-state machine corrected to `D,1,0,A,R`) |
+| six_state_busy_beaver.tm | The current 6-state champion (mxdys, 2025): halts only after more than 10↑↑10↑↑10↑↑8 steps, so it can be watched but never finished |
 
 # Turing Machine Studio (web version)
 
