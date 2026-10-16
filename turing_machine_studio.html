@@ -189,6 +189,53 @@ main{max-width:1600px;margin:0 auto;padding:16px}
 .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:16px;align-items:start}
 @media (max-width:1050px){.split{grid-template-columns:minmax(0,1fr)}}
 
+/* ---- Pinned toolbar + tape ----
+   Sticky just under the app header (whose height is measured into --hdr-h).
+   Once it is actually stuck (.is-stuck) it gets a shadow and the halt
+   summary details are hidden to keep it short. Short or narrow windows do
+   not pin, so the tape can never take over the screen. */
+.run-pin{display:grid;gap:16px}
+.run-pin.pinned{position:sticky;top:var(--hdr-h,58px);z-index:15;background:var(--bg);
+  margin:-16px -16px 0;padding:16px 16px 10px}
+.run-pin.pinned.is-stuck{box-shadow:0 8px 16px -10px rgba(0,0,0,.35);border-bottom:1px solid var(--line)}
+.run-pin.pinned.is-stuck .summary{display:none}
+@media (max-height:680px),(max-width:640px){.run-pin.pinned{position:static;margin:0;padding:0;box-shadow:none;border:0}}
+#bPin[aria-pressed="false"]{opacity:.55}
+
+/* ---- Arrangeable panels under the tape (section T) ----
+   Two-column grid: panels span both columns unless set to half width.
+   A collapsed panel keeps only its first header bar. */
+.rp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 14px}
+.rp-bar b{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.run-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.run-panels > .card{grid-column:1/-1;transition:box-shadow .15s}
+.run-panels > .card.half{grid-column:auto}
+@media (max-width:1050px){.run-panels > .card.half{grid-column:1/-1}}
+.run-panels > .card.collapsed > :not(:first-child){display:none}
+.run-panels > .card.collapsed > .card-h{border-bottom:0}
+.run-panels > .card.dragging{opacity:.35}
+.run-panels > .card > .card-h:first-child{cursor:grab}
+.run-panels > .card > .card-h:first-child :is(button,input,select,label,a){cursor:pointer}
+body.rp-dragging, body.rp-dragging *{cursor:grabbing!important;user-select:none}
+.rp-ghost{position:fixed;left:0;top:0;z-index:90;pointer-events:none;background:var(--ink);color:var(--bg);
+  border-radius:8px;padding:6px 12px;font:600 12px var(--sans);letter-spacing:.06em;text-transform:uppercase;
+  box-shadow:0 10px 24px rgba(0,0,0,.25);white-space:nowrap;display:flex;gap:8px;align-items:center}
+.rp-ghost span{opacity:.6}
+.rp-drop{position:fixed;z-index:89;background:var(--info);border-radius:3px;pointer-events:none;box-shadow:0 0 0 3px var(--info-tint)}
+.rp-drop[hidden]{display:none}
+.run-panels > .card.drop-before{box-shadow:0 -4px 0 0 var(--accent),var(--shadow)}
+.run-panels > .card.drop-after{box-shadow:0 4px 0 0 var(--accent),var(--shadow)}
+.rp-grip{cursor:grab;color:var(--faint);font-size:16px;line-height:1;padding:2px 4px;margin-left:-6px;border-radius:4px;user-select:none}
+.rp-grip:hover{color:var(--ink);background:var(--surface-2)}
+.rp-ctl{display:inline-flex;gap:2px;margin-left:4px}
+.rp-ctl button{border:1px solid transparent;background:none;color:var(--muted);border-radius:6px;min-width:26px;height:26px;cursor:pointer;font-size:13px}
+.rp-ctl button:hover:not(:disabled){border-color:var(--line-strong);color:var(--ink)}
+.rp-ctl button:disabled{opacity:.3;cursor:default}
+.rp-ctl button[data-rp="toggle"]{font-size:14px;transition:transform .15s}
+.card.collapsed .rp-ctl button[data-rp="toggle"]{transform:rotate(-90deg)}
+.run-panels .card-h h2{cursor:pointer}
+.split[data-empty]{display:none}
+
 /* ---- Status strip above the tape ---- */
 .status{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:12px 14px 0}
 .stat{display:flex;align-items:baseline;gap:6px}
@@ -220,7 +267,13 @@ main{max-width:1600px;margin:0 auto;padding:16px}
 .cell .ix{position:absolute;top:calc(100% + 4px);left:0;right:0;text-align:center;
   font:10px var(--mono);color:var(--muted);pointer-events:none}
 .headmark{position:absolute;top:-36px;display:flex;flex-direction:column;align-items:center;
-  transform:translateX(-50%);pointer-events:none;z-index:4}
+  transform:translateX(-50%);z-index:4;cursor:grab;touch-action:none;user-select:none;padding:0 6px 4px}
+.headmark:hover .lbl{box-shadow:0 0 0 3px var(--accent-tint)}
+/* While the head is being dragged: no animation, the marker ignores the pointer so the cell under it can be found. */
+.tape-track.dragging .headmark{transition:none;pointer-events:none}
+.tape-track.dragging, .tape-track.dragging .cell{cursor:grabbing}
+.cell.drop{outline:2px solid var(--accent);outline-offset:2px;z-index:3;background:var(--accent-tint)}
+.cell.head{cursor:grab}
 .headmark.anim{transition:left .14s ease}
 .headmark .lbl{background:var(--accent);color:var(--accent-ink);font:600 11px var(--mono);
   border-radius:5px;padding:2px 7px;white-space:nowrap}
@@ -245,6 +298,11 @@ main{max-width:1600px;margin:0 auto;padding:16px}
   background:var(--cell);font:600 16px var(--mono);cursor:pointer}
 .pop .syms button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .pop .hint{font-size:11px;color:var(--muted);margin-top:6px}
+.st-list{display:flex;flex-wrap:wrap;gap:4px}
+.st-list button{border:1px solid var(--line-strong);border-radius:999px;background:var(--cell);padding:3px 10px;font:600 12.5px var(--mono);cursor:pointer}
+.st-list button:hover{border-color:var(--ink)}
+.st-list button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.st-list button small{font:10px var(--sans);opacity:.7;margin-left:4px;text-transform:uppercase}
 
 /* ---- Editor (textarea + line-number gutter) ----
    The textarea does not wrap lines, so the gutter's line N always lines up
@@ -613,6 +671,8 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
          4. log       – the complete, filterable execution log
        ==================================================================== -->
   <section class="panel stack" id="panel-run" role="tabpanel">
+    <!-- Toolbar + tape stay pinned under the header while the page scrolls (toggle: "Pin tape"). -->
+    <div class="run-pin pinned" id="runPin">
     <div class="card toolbar" role="toolbar" aria-label="Execution controls">
       <button class="btn primary" id="bCompile" title="Compile the machine in the editor (Ctrl/⌘+Enter)">ICON:compile Compile</button>
       <button class="btn" id="bReset" title="Reset the tape and state to the machine's input (R)">ICON:reset Reset</button>
@@ -639,6 +699,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
         <div class="stat"><label>Reading</label><b id="sRead">–</b></div>
         <div class="stat"><label>Tape used</label><b id="sUsed">–</b></div>
         <span style="margin-left:auto"></span>
+        <button class="btn sm ghost" id="bPin" aria-pressed="true" title="Keep the toolbar and tape in view while scrolling the page">📌 Pin tape</button>
         <button class="btn sm ghost" id="bTapeToInput" title="Write the current tape and head position back into the editor as Input and Position">Save tape → Input</button>
       </div>
       <div class="tape-wrap" id="tapeWrap">
@@ -646,9 +707,21 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
       </div>
       <div class="tape-foot"><div class="next" id="next"><span class="k">Next</span>Compile a machine to begin.</div></div>
     </div>
+    </div>
+
+    <!-- Panel bar + container: the cards below are moved into #runPanels in the
+         user's saved order at start-up (section T). -->
+    <div class="card rp-bar" role="toolbar" aria-label="Panel layout">
+      <b>Panels</b><span class="count">drag a header to move a panel (drop on a panel's side to put them side by side) · ↑ ↓ reorder · ⇔ width · ▾ collapse</span>
+      <span style="margin-left:auto"></span>
+      <button class="btn sm" id="rpExpand">Expand all</button>
+      <button class="btn sm" id="rpCollapse">Collapse all</button>
+      <button class="btn sm" id="rpReset" title="Restore the default order, widths and expanded panels">⟲ Reset view</button>
+    </div>
+    <div class="run-panels" id="runPanels"></div>
 
     <!-- State diagram of the running machine; highlights follow every step. -->
-    <div class="card">
+    <div class="card" data-panel="diagram">
       <div class="card-h">
         <h2>State diagram</h2>
         <span class="sd-legend"><span><b></b>current</span><span><b class="halt"></b>halted</span><span><b class="stuck"></b>stuck</span><span><i></i>last step</span><span><i class="lg-next"></i>next step</span><span><i class="lg-hov"></i>hovered in trace</span></span>
@@ -659,7 +732,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
     </div>
 
     <div class="split">
-      <div class="card">
+      <div class="card" data-panel="source">
         <div class="card-h">
           <h2>Machine definition</h2>
           <button class="btn sm" id="bNew" title="Start a new machine from a template">ICON:plus New</button>
@@ -676,11 +749,11 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
       </div>
 
       <div class="stack">
-        <div class="card">
+        <div class="card" data-panel="machine">
           <div class="card-h"><h2>Machine</h2></div>
           <div class="card-b minfo" id="minfo"><div class="empty">No machine compiled yet.</div></div>
         </div>
-        <div class="card">
+        <div class="card" data-panel="rules">
           <div class="card-h">
             <h2>Transition rules</h2>
             <span class="count" id="rulesCount"></span>
@@ -692,7 +765,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" data-panel="log">
       <div class="card-h">
         <h2>Execution log</h2>
         <div class="filters" id="filters">
@@ -713,7 +786,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
     </div>
 
     <!-- The run as a path through the diagram, one step after another. -->
-    <div class="card">
+    <div class="card" data-panel="trace">
       <div class="card-h">
         <h2>State trace</h2>
         <span class="count" id="traceCount"></span>
@@ -725,7 +798,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
     </div>
 
     <!-- The full diagram once per step, one after another (see section R). -->
-    <div class="card" id="framesCard">
+    <div class="card" id="framesCard" data-panel="frames">
       <div class="card-h">
         <h2>Diagram at every step</h2>
         <span class="count" id="framesCount"></span>
@@ -877,8 +950,10 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
 <h3>1 · Run &amp; Debug</h3>
 <ul>
   <li><b>Toolbar</b> – Compile, Reset, Rewind to step 0, Back, Step, Run/Pause, To end (full speed), run speed, and Go to step <i>n</i>. The pill on the right shows the status: <i>Not compiled</i>, <i>Ready</i>, <i>Running</i>, <i>Halted</i>, <i>Stuck</i> or <i>Compile errors</i>.</li>
+  <li><b>Pinned tape</b> – the toolbar and the tape stay at the top of the window while you scroll down to the diagram, rules, log and trace (on short or narrow screens they scroll normally). <b>📌 Pin tape</b> in the status strip turns this off or on.</li>
+  <li><b>Arrange the panels</b> – everything under the tape (State diagram, Machine definition, Machine, Transition rules, Execution log, State trace, Diagram at every step) is a panel you can arrange: <b>drag it by its header bar</b> and drop it where you want it — a blue marker shows where it will land: on the top or bottom half of another panel to go above or below it, on its left or right edge to sit side by side with it (both become half width), or below the last panel to go to the end (the page scrolls while you drag near the edges; <kbd>Esc</kbd> cancels). You can also use <b>↑ ↓</b>; <b>⇔</b> switches between full and half width (two half panels sit side by side); <b>▾</b> or a click on the title collapses it to its header. The <b>Panels</b> bar has <b>Expand all</b>, <b>Collapse all</b> and <b>⟲ Reset view</b>, which restores the default arrangement. The layout is remembered in the browser.</li>
   <li><b>Status strip</b> – current state (a drop-down: change it by hand), step count, head position, the symbol under the head, and how much tape has been used. <b>Save tape → Input</b> writes the current tape and head position back into the editor as <code>Input</code> and <code>Position</code>.</li>
-  <li><b>Tape</b> – the used part of the tape plus a few blank cells either side (shaded). The orange marker is the head, labelled with the current state. <b>Click</b> a cell to change its symbol, <b>double-click</b> to move the head there.</li>
+  <li><b>Tape</b> – the used part of the tape plus a few blank cells either side (shaded). The orange marker is the head, labelled with the current state. <b>Click</b> a cell to change its symbol. To move the head, <b>drag the orange head marker</b> (or the cell it is on) to any cell — the tape scrolls when you reach its edge, and a running machine pauses first — or double-click a cell. <b>Click the head marker</b> to change the state the head is in. Head moves and state changes are logged and undone with Back.</li>
   <li><b>Next</b> – which rule fires next, what it will do and its comment. When the machine stops it shows the result: time (steps), space (tape used), input and output. If no rule applies it offers to add one.</li>
   <li><b>State diagram</b> – the rules drawn as states and arrows, highlighting the current state, the step just taken and the next one as you run. See <a href="#r-diagram">below</a>.</li>
   <li><b>Machine definition</b> – the editor with line numbers. Lines with errors are marked in the gutter. <b>New</b>, <b>Open</b> (load a .tm from disk) and <b>Save .tm</b> sit above it.</li>
@@ -947,7 +1022,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
 <p>The tape is unbounded in both directions. "Tape used" (space complexity) is the length of the stretch from the leftmost to the rightmost cell the head has visited, the same measure Turing.py prints. "Steps" is the time complexity.</p>
 
 <h2 id="r-diagram">State diagram and state trace</h2>
-<p>The diagram is drawn on the fly from the transition rules, on the Editor tab (from the form) and on Run &amp; Debug (from the compiled machine). Each state is a circle — a double ring for final states, with a <i>start</i> arrow into the start state. Each arrow carries one line per rule, <code>read → write, move</code>; a rule that stays in its state is a loop above the circle. States are laid out left to right by how far they are from the start state, so the diagram roughly follows the order the machine runs in. <b>Actual size</b> / <b>Fit to width</b> switches the zoom.</p>
+<p>The diagram is drawn on the fly from the transition rules, on the Editor tab (from the form) and on Run &amp; Debug (from the compiled machine). Each state is a circle — a double ring for final states, with a <i>start</i> arrow into the start state. Each arrow carries one line per rule, <code>#rule-number  read → write, move</code> (for example <code>#1  0 → x, R</code>), in every diagram — Run &amp; Debug, Editor, full screen, the step frames and the downloads; a rule that stays in its state is a loop above the circle. States are laid out left to right by how far they are from the start state, so the diagram roughly follows the order the machine runs in. <b>Actual size</b> / <b>Fit to width</b> switches the zoom.</p>
 <p>While the machine runs, the current state is filled orange (green when halted, red when stuck), the arrow of the step just taken is solid orange, and the arrow that fires next is dashed. Hover a state to see every rule leaving it, or a rule line to see what it does and its comment.</p>
 <p>The <b>state trace</b> under the log shows the run as a path through the diagram: <code>(Q0) —#0 0→x, R→ (Q1) —#1 0→0, R→ (Q1) …</code>. Each arrow is one step: the symbol read, the symbol written and the move, with the step number above it. Hover a step for the full details (cell, rule, comment) — its arrow lights up blue in the diagram. Click a state to go to that point in the run. Manual edits appear as ✎. The trace follows stepping back, and shows the most recent 400 steps.</p>
 
@@ -1069,6 +1144,13 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
   <div class="sd-full-cap" id="sdFullCap"></div>
   <div class="sd-full-body" id="sdFullBody"></div>
 </div>
+<!-- State picker: opened by clicking the head marker on the tape. -->
+<div class="pop" id="statePop" hidden role="dialog" aria-label="Change the head's state">
+  <h4 id="statePopTitle">State</h4>
+  <div class="st-list" id="statePopList"></div>
+  <div class="hint">Changing the state by hand is logged and can be undone with Back. Esc closes.</div>
+</div>
+<div class="rp-drop" id="rpDrop" hidden></div>
 <div class="toast" id="toast" role="status"></div>
 <div class="tip" id="tip" role="tooltip"></div>
 
@@ -1786,6 +1868,7 @@ const EXAMPLES = [
        Q. downloadable execution report
        R. diagram at every step (filmstrip panel + download)
        S. full-screen diagram viewer
+       T. arrangeable panels on Run & Debug (order, width, collapse, reset view)
      ========================================================================== -->
 <script id="ui">
 'use strict';
@@ -2567,15 +2650,17 @@ function renderTape() {
     if (i === sim.head) cls.push('head');
     if (i === selCell) cls.push('sel');
     if (i === sim.lastPos && !running) cls.push('wrote');
-    html += `<div class="${cls.join(' ')}" data-i="${i}" title="Cell ${i}: click to edit, double-click to move the head here">${esc(s)}<span class="ix">${i}</span></div>`;
+    html += `<div class="${cls.join(' ')}" data-i="${i}" title="Cell ${i}: click to edit the symbol · drag the orange head marker here (or double-click) to move the head">${esc(s)}<span class="ix">${i}</span></div>`;
   }
   // The head marker: a label with the current state and a small triangle.
-  html += `<div class="headmark ${currentDelay() >= 50 && running ? 'anim' : ''}" id="headmark"><span class="lbl">${esc(sim.state)}</span><span class="tri"></span></div>`;
+  html += `<div class="headmark ${currentDelay() >= 50 && running ? 'anim' : ''}" id="headmark" title="Head in state ${esc(sim.state)} — click to change the state, drag to move the head"><span class="lbl">${esc(sim.state)}</span><span class="tri"></span></div>`;
 
   // Skip rebuilding when nothing visible changed (keeps the flash animation stable).
   const key = html;
   if (key !== lastTapeKey) { track.innerHTML = html; lastTapeKey = key; }
 
+  // While the head is being dragged the marker follows the pointer instead.
+  if (headDrag && headDrag.moved) return;
   // Position the head marker over the head cell and keep it in view.
   const headCell = track.querySelector('.cell.head');
   const mark = $('#headmark');
@@ -2585,6 +2670,116 @@ function renderTape() {
     const left = wrap.scrollLeft, w = wrap.clientWidth;
     if (x < left + 60 || x > left + w - 60) wrap.scrollLeft = x - w / 2;
   }
+}
+
+/* --------------------------------------------------------------------------
+   Dragging the head
+   Grab the orange head marker (or the head cell itself) and drop it on any
+   cell to move the head there. A press that barely moves stays a click, so
+   clicking the head cell still opens the symbol editor. While dragging, the
+   marker follows the pointer, the cell under it is outlined, and the tape
+   scrolls when the pointer nears either edge. Dropping calls moveHeadTo(),
+   so the move is logged and can be undone with Back like any other edit.
+   Pointer events cover mouse, pen and touch.
+   -------------------------------------------------------------------------- */
+
+let headDrag = null;          // {id, x0, moved, target} while a drag is in progress
+let suppressCellClick = false; // swallow the click that follows a drag
+
+/** The tape cell under a screen x position (on the row of cells), or null. */
+function cellUnder(clientX) {
+  const any = $('#tape .cell');
+  if (!any) return null;
+  const r = any.getBoundingClientRect();
+  const el = document.elementFromPoint(clientX, r.top + r.height / 2);
+  return el && el.closest('#tape .cell');
+}
+
+/** Start a possible drag on pointerdown over the marker or the head cell. */
+function headDragStart(e) {
+  if (!sim || e.button > 0) return;
+  const grip = e.target.closest('#headmark, .cell.head');
+  if (!grip) return;
+  headDrag = { id: e.pointerId, x0: e.clientX, moved: false, target: null };
+  // The pointer is only captured once it really moves (see headDragMove):
+  // capturing now would redirect the click on the head cell away from it.
+  if (grip.id === 'headmark') e.preventDefault();       // no text selection / scrolling from the marker
+}
+
+/** Follow the pointer: move the marker, outline the target cell, auto-scroll near the edges. */
+function headDragMove(e) {
+  if (!headDrag || e.pointerId !== headDrag.id) return;
+  if (!e.buttons) { headDrag = null; return; }          // released somewhere we did not see
+  if (!headDrag.moved) {
+    if (Math.abs(e.clientX - headDrag.x0) < 5) return;  // still a click
+    headDrag.moved = true;
+    $('#tape').setPointerCapture(e.pointerId);          // keep receiving moves even outside the tape
+    if (running) stopRun('Paused to move the head');
+    closePop();
+    $('#tape').classList.add('dragging');
+  }
+  const track = $('#tape'), wrap = $('#tapeWrap'), mark = $('#headmark');
+  const tr = track.getBoundingClientRect();
+  mark.style.left = (e.clientX - tr.left) + 'px';
+  // Auto-scroll when the pointer is near the visible edges of the tape.
+  const wr = wrap.getBoundingClientRect();
+  if (e.clientX < wr.left + 40) wrap.scrollLeft -= 14;
+  else if (e.clientX > wr.right - 40) wrap.scrollLeft += 14;
+  // Outline the cell that would receive the head.
+  const cell = cellUnder(e.clientX);
+  if (cell !== headDrag.target) {
+    if (headDrag.target) headDrag.target.classList.remove('drop');
+    headDrag.target = cell;
+    if (cell) cell.classList.add('drop');
+  }
+}
+
+/** Drop: move the head to the outlined cell (or snap back if dropped off the tape). */
+function headDragEnd(e) {
+  if (!headDrag || e.pointerId !== headDrag.id) return;
+  const { moved, target } = headDrag;
+  headDrag = null;
+  $('#tape').classList.remove('dragging');
+  if (target) target.classList.remove('drop');
+  if (!moved) return;                                   // it was a click: let the click handler run
+  suppressCellClick = true;                             // the click that follows a drag is not an edit
+  setTimeout(() => { suppressCellClick = false; }, 0);
+  if (target && e.type !== 'pointercancel') moveHeadTo(+target.dataset.i);
+  lastTapeKey = '';                                     // redraw so the marker snaps onto the head cell
+  scheduleRender();
+}
+
+/**
+ * State picker: a click (not a drag) on the head marker lists every state;
+ * choosing one changes the current state by hand, like the State
+ * drop-down in the status strip.
+ */
+function openStatePop(markEl) {
+  if (!sim) return;
+  if (running) stopRun('Paused to change the state');
+  closePop();
+  const finals = new Set(M.finals);
+  $('#statePopTitle').textContent = `Head state — currently ${sim.state}`;
+  $('#statePopList').innerHTML = M.states.map(s =>
+    `<button data-st="${esc(s)}" class="${s === sim.state ? 'on' : ''}" title="${finals.has(s) ? 'Final state: choosing it halts the machine' : 'Continue from state ' + esc(s)}">${esc(s)}${s === M.initial ? '<small>start</small>' : ''}${finals.has(s) ? '<small>final</small>' : ''}</button>`).join('');
+  const pop = $('#statePop');
+  pop.hidden = false;
+  const r = markEl.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  pop.style.left = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8) + 'px';
+  let y = r.bottom + 62;                                // below the tape cells
+  if (y + ph > window.innerHeight - 8) y = Math.max(8, r.top - ph - 8);
+  pop.style.top = y + 'px';
+  pop.querySelector('button.on, button')?.focus();
+}
+
+/** Change the current state by hand (state picker and State drop-down). */
+function setStateByHand(s) {
+  if (!sim || s === sim.state) return;
+  const old = sim.state;
+  TM.setState(sim, M, s);
+  log('edit', `✎ State changed by hand: ${old} → ${sim.state}`);
+  recheckStuck();
 }
 
 /** Open the cell editor popover next to cell `i`. */
@@ -2611,6 +2806,7 @@ function openPop(i, cellEl) {
 
 /** Close the cell editor popover. */
 function closePop() {
+  $('#statePop').hidden = true;
   if (selCell === null) return;
   selCell = null;
   $('#pop').hidden = true;
@@ -3676,10 +3872,13 @@ function wireBuilder() {
 const SD = { R: 24, PAD: 30, LINE: 14, CHAR: 6.6 };
 
 /**
- * The text of one rule on an edge label, e.g. "0 → x, R".
- * @param {object} r  {read, write, move}
+ * The text of one rule on an edge label, with its rule number when known,
+ * e.g. "#1  0 → x, R". Every diagram (Run & Debug, Editor, full screen,
+ * the step frames and the downloads) draws its labels with this, and the
+ * label boxes are sized from it.
+ * @param {object} r  {sno, read, write, move}
  */
-const sdRuleText = r => `${r.read} → ${r.write}, ${r.move}`;
+const sdRuleText = r => `${r.sno !== undefined && r.sno !== null ? '#' + r.sno + '  ' : ''}${r.read} → ${r.write}, ${r.move}`;
 
 /**
  * Compute positions for every state.
@@ -4361,6 +4560,7 @@ function renderFramesPanel(force = false) {
     return;
   }
   if (!framesVisible && !force) return;
+  if ($('#framesCard').classList.contains('collapsed')) return;   // nothing to draw while collapsed
   const show = $('#framesShow').value;
   const sig = `${sim.hist.length}|${sim.step}|${sim.state}|${sim.status}|${show}|${$('#runSd').dataset.sig}`;
   if (sig === framesSig) return;
@@ -4626,6 +4826,300 @@ function wireDiagramFull() {
 }
 
 /* ==========================================================================
+   T. ARRANGEABLE PANELS (Run & Debug)
+   --------------------------------------------------------------------------
+   The panels under the tape can be reordered, collapsed and set to half or
+   full width. Each panel card carries data-panel="<id>"; at start-up they
+   are moved into #runPanels in the saved order, and each header gets:
+     ⠿  drag the panel by its header bar and drop it where you want it:
+        on the top / bottom half of another panel → above / below it;
+        on its left / right edge → side by side with it (both half width);
+        in the empty space after the last panel → at the end
+     ↑ ↓  move up / down one place (keyboard-friendly alternative to dragging)
+     ⇔   half width / full width (two half panels sit side by side)
+     ▾   collapse / expand (clicking the title does the same)
+   The layout is saved in the browser; "Reset view" restores PANEL_DEFAULTS.
+   ========================================================================== */
+
+/** Default arrangement: order, widths and nothing collapsed. */
+const PANEL_DEFAULTS = {
+  // Machine definition (the text editor) is used least while running, so it comes last.
+  order: ['diagram', 'machine', 'rules', 'log', 'trace', 'frames', 'source'],
+  half: [],
+  collapsed: []
+};
+let layout = null;   // {order:[], half:[], collapsed:[]}
+
+/** Load the saved layout (adding any panel ids it does not know yet). */
+function loadLayout() {
+  let l;
+  try { l = JSON.parse(store.get('tm.layout', 'null')); } catch { l = null; }
+  if (!l || !Array.isArray(l.order)) l = { ...structuredClone(PANEL_DEFAULTS), v2: true };
+  PANEL_DEFAULTS.order.forEach(id => { if (!l.order.includes(id)) l.order.push(id); });
+  l.order = l.order.filter(id => PANEL_DEFAULTS.order.includes(id));
+  l.half = l.half || []; l.collapsed = l.collapsed || [];
+  if (!l.v2) { l.order = [...l.order.filter(id => id !== 'source'), 'source']; l.half = l.half.filter(id => !['source', 'machine'].includes(id)); l.v2 = true; }
+  return l;
+}
+const saveLayout = () => store.set('tm.layout', JSON.stringify(layout));
+
+/** The card element of a panel. */
+const panelEl = id => $(`[data-panel="${id}"]`);
+
+/**
+ * Put the panels in order and apply widths / collapsed state; refresh the
+ * ↑ ↓ buttons.
+ * @param {string} [anchor]  id of the panel the user just acted on: its header
+ *   is kept at the same place on screen (so collapsing never makes the page
+ *   jump), or, after a move, scrolled into view if it left the window.
+ * @param {boolean} [moved]  the anchor panel changed position
+ */
+function applyLayout(anchor = null, moved = false) {
+  const box = $('#runPanels');
+  const head = anchor ? panelEl(anchor).querySelector('.card-h') : null;
+  const before = head ? head.getBoundingClientRect().top : 0;
+  const wasFramesCollapsed = $('#framesCard').classList.contains('collapsed');
+  // Only touch the DOM order when it actually differs (re-inserting nodes
+  // makes browsers lose the scroll position).
+  const current = [...box.children].map(c => c.dataset.panel).join();
+  if (current !== layout.order.join()) layout.order.forEach(id => box.appendChild(panelEl(id)));
+  layout.order.forEach((id, i) => {
+    const card = panelEl(id);
+    card.classList.toggle('half', layout.half.includes(id));
+    const collapsed = layout.collapsed.includes(id);
+    card.classList.toggle('collapsed', collapsed);
+    const ctl = card.querySelector('.rp-ctl');
+    ctl.querySelector('[data-rp="up"]').disabled = i === 0;
+    ctl.querySelector('[data-rp="down"]').disabled = i === layout.order.length - 1;
+    const w = ctl.querySelector('[data-rp="width"]');
+    w.title = layout.half.includes(id) ? 'Make full width' : 'Make half width';
+    const tg = ctl.querySelector('[data-rp="toggle"]');
+    tg.setAttribute('aria-expanded', String(!collapsed));
+    tg.title = collapsed ? 'Expand' : 'Collapse';
+  });
+  saveLayout();
+  scheduleRender();
+  // The frames are only redrawn when that panel has just been expanded.
+  if (wasFramesCollapsed && !layout.collapsed.includes('frames')) renderFramesPanel(true);
+
+  if (head) {
+    if (!moved) {
+      // Collapse / expand / width: keep the clicked header where it was.
+      window.scrollBy(0, head.getBoundingClientRect().top - before);
+    } else {
+      // Moved: make sure the panel's header is visible below the pinned tape.
+      const pin = $('#runPin');
+      const top = (pin.classList.contains('pinned') ? pin.getBoundingClientRect().bottom : $('.app-header').offsetHeight) + 8;
+      const r = head.getBoundingClientRect();
+      if (r.top < top) window.scrollBy(0, r.top - top);
+      else if (r.bottom > window.innerHeight - 8) window.scrollBy(0, r.bottom - window.innerHeight + 60);
+    }
+  }
+}
+
+/** Collapse or expand one panel (or set it explicitly). */
+function togglePanel(id, collapse = !layout.collapsed.includes(id)) {
+  layout.collapsed = layout.collapsed.filter(x => x !== id);
+  if (collapse) layout.collapsed.push(id);
+  applyLayout(id);
+}
+
+/** Move a panel to a new index in the order. */
+function movePanel(id, index) {
+  const order = layout.order.filter(x => x !== id);
+  order.splice(Math.max(0, Math.min(order.length, index)), 0, id);
+  layout.order = order;
+  applyLayout(id, true);
+}
+
+/* --------------------------------------------------------------------------
+   Dragging panels (pointer events: mouse, pen and touch)
+   A press on a panel's header bar (not on its buttons or fields) that moves
+   more than 6 px lifts the panel: a ghost of its header follows the pointer
+   and a blue marker shows where it will land. Zones on the panel under the
+   pointer: left / right 22 % → side by side; otherwise top / bottom half →
+   above / below. Below the last panel → at the end. The page auto-scrolls
+   near the window edges (and just under the pinned tape). Esc cancels.
+   -------------------------------------------------------------------------- */
+
+let pdrag = null;            // {id, x0, y0, started, ghost, target, zone, pointerId}
+let pdragJustEnded = false;  // swallow the click that ends a drag
+let pdragRaf = 0;            // auto-scroll loop
+let pdragLast = null;        // last pointer position (for auto-scroll)
+
+/** Pointer down on a header bar: remember it; the drag starts once it moves. */
+function panelDragStart(e) {
+  if (e.button > 0) return;
+  const head = e.target.closest('#runPanels > [data-panel] > .card-h:first-child');
+  if (!head || e.target.closest('button, input, select, textarea, label, a, .filters, .sd-legend')) return;
+  pdrag = { id: head.parentElement.dataset.panel, x0: e.clientX, y0: e.clientY, started: false, pointerId: e.pointerId };
+}
+
+/** Which panel and zone is under the pointer; null target = "at the end". */
+function panelDropAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const card = el && el.closest('#runPanels > [data-panel]');
+  if (card && card.dataset.panel !== pdrag.id) {
+    const r = card.getBoundingClientRect();
+    const fx = (x - r.left) / r.width, fy = (y - r.top) / r.height;
+    const zone = fx < 0.22 ? 'left' : fx > 0.78 ? 'right' : fy < 0.5 ? 'before' : 'after';
+    return { target: card, zone };
+  }
+  if (card) return { target: card, zone: 'self' };                        // over itself: no move
+  const box = $('#runPanels').getBoundingClientRect();
+  if (y > box.bottom - 4 && x > box.left && x < box.right) return { target: null, zone: 'end' };
+  return { target: null, zone: null };
+}
+
+/** Draw the blue drop marker for the current target and zone. */
+function panelDropMarker() {
+  const m = $('#rpDrop');
+  const { target, zone } = pdrag;
+  if (!zone || zone === 'self') { m.hidden = true; return; }
+  let r;
+  if (zone === 'end') {
+    const last = $('#runPanels').lastElementChild.getBoundingClientRect();
+    r = { left: $('#runPanels').getBoundingClientRect().left, top: last.bottom + 6, width: $('#runPanels').getBoundingClientRect().width, height: 4 };
+  } else {
+    const t = target.getBoundingClientRect();
+    if (zone === 'before') r = { left: t.left, top: t.top - 10, width: t.width, height: 4 };
+    else if (zone === 'after') r = { left: t.left, top: t.bottom + 6, width: t.width, height: 4 };
+    else r = { left: zone === 'left' ? t.left - 10 : t.right + 6, top: t.top, width: 4, height: t.height };
+  }
+  Object.assign(m.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+  m.hidden = false;
+}
+
+/** Follow the pointer: start the drag after 6 px, move the ghost, update the marker. */
+function panelDragMove(e) {
+  if (!pdrag || e.pointerId !== pdrag.pointerId) return;
+  if (!pdrag.started) {
+    if (Math.hypot(e.clientX - pdrag.x0, e.clientY - pdrag.y0) < 6) return;
+    pdrag.started = true;
+    const card = panelEl(pdrag.id);
+    // The ghost is a compact label with the panel's name that follows the pointer.
+    const g = document.createElement('div');
+    g.className = 'rp-ghost';
+    g.innerHTML = `<span>⠿</span>${esc(card.querySelector('h2').textContent)}`;
+    document.body.appendChild(g);
+    pdrag.ghost = g;
+    card.classList.add('dragging');
+    document.body.classList.add('rp-dragging');
+    pdragRaf = requestAnimationFrame(panelAutoScroll);
+  }
+  e.preventDefault();
+  pdragLast = { x: e.clientX, y: e.clientY };
+  // Keep the ghost inside the window (flip to the left of the pointer near the right edge).
+  const gw = pdrag.ghost.offsetWidth;
+  const gx = e.clientX + 14 + gw > window.innerWidth - 8 ? e.clientX - gw - 14 : e.clientX + 14;
+  pdrag.ghost.style.transform = `translate(${gx}px, ${e.clientY + 12}px)`;
+  Object.assign(pdrag, panelDropAt(e.clientX, e.clientY));
+  panelDropMarker();
+}
+
+/** Scroll the page while the pointer is near the bottom edge or just under the pinned tape. */
+function panelAutoScroll() {
+  if (!pdrag || !pdrag.started) return;
+  if (pdragLast) {
+    const pin = $('#runPin');
+    const top = pin.classList.contains('is-stuck') ? pin.getBoundingClientRect().bottom : $('.app-header').offsetHeight;
+    let dy = 0;
+    if (pdragLast.y > window.innerHeight - 70) dy = 16;
+    else if (pdragLast.y < top + 50) dy = -16;
+    if (dy) {
+      window.scrollBy(0, dy);
+      Object.assign(pdrag, panelDropAt(pdragLast.x, pdragLast.y));
+      panelDropMarker();
+    }
+  }
+  pdragRaf = requestAnimationFrame(panelAutoScroll);
+}
+
+/** Drop (or cancel): apply the new position and width, clean up. */
+function panelDragEnd(e, cancel = false) {
+  if (!pdrag || (e.pointerId !== undefined && e.pointerId !== pdrag.pointerId && e.type !== 'keydown')) return;
+  const d = pdrag;
+  pdrag = null;
+  cancelAnimationFrame(pdragRaf);
+  if (!d.started) return;                                                // just a click
+  pdragJustEnded = true;
+  setTimeout(() => { pdragJustEnded = false; }, 0);
+  d.ghost.remove();
+  panelEl(d.id).classList.remove('dragging');
+  document.body.classList.remove('rp-dragging');
+  $('#rpDrop').hidden = true;
+  if (cancel || !d.zone || d.zone === 'self') return;
+
+  const order = layout.order.filter(x => x !== d.id);
+  if (d.zone === 'end') order.push(d.id);
+  else {
+    const tid = d.target.dataset.panel;
+    const at = order.indexOf(tid) + (d.zone === 'after' || d.zone === 'right' ? 1 : 0);
+    order.splice(at, 0, d.id);
+    if (d.zone === 'left' || d.zone === 'right') {
+      // Side by side: both become half width.
+      layout.half = [...new Set([...layout.half, d.id, tid])];
+    }
+  }
+  layout.order = order;
+  applyLayout(d.id, true);
+  const title = panelEl(d.id).querySelector('h2').textContent;
+  toast(d.zone === 'left' || d.zone === 'right' ? `${title} placed side by side` : `${title} moved`);
+}
+
+/** Build the panel container: move the cards in, add the header controls, wire everything. */
+function initPanels() {
+  layout = loadLayout();
+  for (const id of PANEL_DEFAULTS.order) {
+    const card = panelEl(id);
+    const head = card.querySelector('.card-h');
+    const title = head.querySelector('h2');
+    title.insertAdjacentHTML('beforebegin', `<span class="rp-grip" title="Drag the header to move this panel" aria-hidden="true">⠿</span>`);
+    title.title = 'Click to collapse or expand';
+    head.insertAdjacentHTML('beforeend', `<span class="rp-ctl">
+      <button data-rp="up" title="Move up" aria-label="Move ${esc(title.textContent)} up">↑</button>
+      <button data-rp="down" title="Move down" aria-label="Move ${esc(title.textContent)} down">↓</button>
+      <button data-rp="width" aria-label="Toggle the width of ${esc(title.textContent)}">⇔</button>
+      <button data-rp="toggle" aria-label="Collapse or expand ${esc(title.textContent)}">▾</button></span>`);
+  }
+  // The old two-column wrapper is empty now; hide it.
+  $('.split').setAttribute('data-empty', '');
+
+  const box = $('#runPanels');
+  box.addEventListener('click', e => {
+    const card = e.target.closest('[data-panel]');
+    if (!card || !e.target.closest('.card-h')) return;
+    const id = card.dataset.panel;
+    const btn = e.target.closest('[data-rp]');
+    if (btn) {
+      const i = layout.order.indexOf(id);
+      if (btn.dataset.rp === 'up') movePanel(id, i - 1);
+      else if (btn.dataset.rp === 'down') movePanel(id, i + 1);
+      else if (btn.dataset.rp === 'toggle') togglePanel(id);
+      else if (btn.dataset.rp === 'width') {
+        layout.half = layout.half.includes(id) ? layout.half.filter(x => x !== id) : [...layout.half, id];
+        applyLayout(id);
+      }
+    } else if (e.target.closest('h2') && !pdragJustEnded) togglePanel(id);
+  });
+
+  // Drag a panel by its header bar (see panelDrag* below). The old native
+  // HTML5 drag-and-drop only worked from the small grip and not on touch.
+  box.addEventListener('pointerdown', panelDragStart);
+  window.addEventListener('pointermove', panelDragMove);
+  window.addEventListener('pointerup', panelDragEnd);
+  window.addEventListener('pointercancel', e => panelDragEnd(e, true));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && pdrag) panelDragEnd(e, true); }, true);
+
+  // Panel bar.
+  $('#rpExpand').addEventListener('click', () => { layout.collapsed = []; applyLayout(); });
+  $('#rpCollapse').addEventListener('click', () => { layout.collapsed = [...layout.order]; applyLayout(); });
+  $('#rpReset').addEventListener('click', () => { layout = { ...structuredClone(PANEL_DEFAULTS), v2: true }; applyLayout(); toast('Panels restored to the default view'); });
+
+  applyLayout();
+}
+
+/* ==========================================================================
    L. TABS, THEME, KEYBOARD, WIRING AND START-UP
    ========================================================================== */
 
@@ -4653,6 +5147,32 @@ function setSpeed(i) {
   $('#speedOut').textContent = SPEEDS[i].label;
 }
 
+/**
+ * Pinned toolbar + tape: keep --hdr-h equal to the header's height (it
+ * wraps on narrow screens), mark the pinned block as stuck once the page
+ * has scrolled under it, and remember the Pin tape choice.
+ */
+function wirePin() {
+  const pin = $('#runPin'), btn = $('#bPin');
+  const setHeader = () => document.documentElement.style.setProperty('--hdr-h', $('.app-header').offsetHeight + 'px');
+  setHeader();
+  new ResizeObserver(setHeader).observe($('.app-header'));
+  const onScroll = () => {
+    const top = pin.getBoundingClientRect().top;
+    pin.classList.toggle('is-stuck', pin.classList.contains('pinned') && window.scrollY > 0 && top <= $('.app-header').offsetHeight + 1);
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  const apply = on => {
+    pin.classList.toggle('pinned', on);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.textContent = on ? '📌 Pin tape' : '📌 Pin tape (off)';
+    store.set('tm.pin', on ? '1' : '0');
+    onScroll();
+  };
+  btn.addEventListener('click', () => apply(!pin.classList.contains('pinned')));
+  apply(store.get('tm.pin', '1') === '1');
+}
+
 /** Wire up every button and input. */
 function wire() {
   $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -4678,13 +5198,7 @@ function wire() {
   $('#gotoN').addEventListener('keydown', e => { if (e.key === 'Enter') gotoStep(parseInt($('#gotoN').value, 10)); });
 
   // Status strip: change state by hand, save tape as input.
-  $('#stateSel').addEventListener('change', e => {
-    if (!sim) return;
-    const old = sim.state;
-    TM.setState(sim, M, e.target.value);
-    log('edit', `✎ State changed by hand: ${old} → ${sim.state}`);
-    recheckStuck();
-  });
+  $('#stateSel').addEventListener('change', e => setStateByHand(e.target.value));
   $('#bTapeToInput').addEventListener('click', () => {
     setTextKey('Input', TM.tapeString(sim, M));
     setTextKey('Position', String(sim.head - sim.min));
@@ -4698,8 +5212,18 @@ function wire() {
     if (e.target.id === 'bAddMissing' && sim) addRule(sim.state, TM.read(sim, M, sim.head));
   });
 
+  // Tape: drag the head marker (or head cell) to move the head.
+  $('#tape').addEventListener('pointerdown', headDragStart);
+  $('#tape').addEventListener('pointermove', headDragMove);
+  $('#tape').addEventListener('pointerup', headDragEnd);
+  $('#tape').addEventListener('pointercancel', headDragEnd);
+  window.addEventListener('pointerup', e => { if (headDrag && !headDrag.moved && e.pointerId === headDrag.id) headDrag = null; });
+
   // Tape: click = edit popover, double-click = move head.
   $('#tape').addEventListener('click', e => {
+    if (suppressCellClick) return;                       // the end of a drag, not a click
+    const mark = e.target.closest('#headmark');
+    if (mark) { openStatePop(mark); return; }            // click on the head: change its state
     const c = e.target.closest('.cell');
     if (c) openPop(+c.dataset.i, c);
   });
@@ -4712,8 +5236,13 @@ function wire() {
     if (b) writeSelected(b.dataset.s);
   });
   $('#popHead').addEventListener('click', () => moveHeadTo(selCell));
+  $('#statePopList').addEventListener('click', e => {
+    const b = e.target.closest('button[data-st]');
+    if (b) { setStateByHand(b.dataset.st); closePop(); }
+  });
   document.addEventListener('mousedown', e => {
     if (selCell !== null && !e.target.closest('#pop') && !e.target.closest('.cell')) closePop();
+    if (!$('#statePop').hidden && !e.target.closest('#statePop') && !e.target.closest('#headmark')) $('#statePop').hidden = true;
   });
   window.addEventListener('resize', closePop);
 
@@ -4855,6 +5384,8 @@ function init() {
   renderExamples();
   wire();
   wireTips();           // hover / focus explanations everywhere
+  wirePin();            // toolbar + tape stay in view while scrolling Run & Debug
+  initPanels();         // arrangeable / collapsible panels under the tape
   wireDiagramFull();    // click a diagram to open it full screen
   loadBuilder();        // Editor tab: restore the saved form or the defaults
   wireBuilder();
