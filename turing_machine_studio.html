@@ -1,0 +1,2557 @@
+<!doctype html>
+<!--
+  ============================================================================
+  TURING MACHINE STUDIO
+  ============================================================================
+  A browser-based port of the command-line Turing machine simulator
+  (Turing.py, github.com/gauravvermaea/TurningMachine).
+
+  The whole application lives in this single HTML file:
+    * <style>                 – all visual styling (light + dark theme)
+    * <script id="engine">    – the Turing machine ENGINE: parser/compiler,
+                                validator and the step / undo simulator.
+                                It never touches the DOM, so it can be unit
+                                tested on its own (e.g. under Node.js).
+    * <script id="examples">  – the example machines from the repository,
+                                embedded as plain text.
+    * <script id="ui">        – everything the user sees: tabs, editor,
+                                tape, rules table, log, config and README.
+
+  The machine-file format is exactly the one Turing.py reads (.tm files),
+  so any file that works on the command line works here, and anything you
+  save from here can be run with `python3 Turing.py <file>`.
+
+  Open the file in any modern browser; no server, build step or internet
+  connection is needed.
+  ============================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turing Machine Studio</title>
+<style>
+/* ==========================================================================
+   1. DESIGN TOKENS
+   --------------------------------------------------------------------------
+   Every colour used in the app is defined once here as a CSS custom
+   property. The light theme is the default; the dark theme overrides the
+   same tokens. The dark theme applies when:
+     a) the OS prefers dark AND the user has not forced light, or
+     b) the user picked dark with the theme button (data-theme="dark").
+   ========================================================================== */
+:root{
+  --bg:#f4f2ec;            /* page background (warm paper)             */
+  --surface:#ffffff;       /* cards                                     */
+  --surface-2:#faf8f3;     /* nested panels inside cards                */
+  --ink:#1c1e22;           /* primary text                              */
+  --muted:#686c73;         /* secondary text                            */
+  --faint:#a3a6ab;         /* tertiary text, blank tape symbols         */
+  --line:#e2ded4;          /* hairline borders                          */
+  --line-strong:#cbc5b8;   /* tape cell borders, inputs                 */
+  --accent:#c56a00;        /* the read/write head, primary actions      */
+  --accent-ink:#ffffff;    /* text placed on top of --accent            */
+  --accent-tint:#fff0d9;   /* background of the cell under the head     */
+  --ok:#0f7a6c;  --ok-tint:#dff2ee;    /* halted / success               */
+  --err:#c0392b; --err-tint:#fbe7e4;   /* errors / stuck                 */
+  --warn:#9a5c00;--warn-tint:#fcefd6;  /* warnings                       */
+  --info:#3567b0;--info-tint:#e5edf9;  /* informational notes            */
+  --cell:#fffdf8;          /* tape cell inside the used range            */
+  --cell-pad:#efece4;      /* tape cell outside the used range (blanks)  */
+  --gutter:#f5f2ea;        /* editor line-number gutter                  */
+  --code:#fbfaf6;          /* code / log background                      */
+  --shadow:0 1px 2px rgba(30,25,15,.06),0 6px 18px rgba(30,25,15,.05);
+  --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+/* Dark theme, case (a): follow the operating system unless forced light. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111215; --surface:#1a1c20; --surface-2:#1f2126; --ink:#e9e6df;
+    --muted:#9b9ea5; --faint:#5f636a; --line:#2b2e34; --line-strong:#3c4047;
+    --accent:#f2a33a; --accent-ink:#1a1206; --accent-tint:#3a2a12;
+    --ok:#3cc9b2; --ok-tint:#11302b; --err:#f2786b; --err-tint:#3a1a17;
+    --warn:#f0b54d; --warn-tint:#352812; --info:#7ea9ec; --info-tint:#16243a;
+    --cell:#202227; --cell-pad:#17181c; --gutter:#16171b; --code:#15161a;
+    --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark;
+  }
+}
+/* Dark theme, case (b): forced by the theme button. */
+:root[data-theme="dark"]{
+  --bg:#111215; --surface:#1a1c20; --surface-2:#1f2126; --ink:#e9e6df;
+  --muted:#9b9ea5; --faint:#5f636a; --line:#2b2e34; --line-strong:#3c4047;
+  --accent:#f2a33a; --accent-ink:#1a1206; --accent-tint:#3a2a12;
+  --ok:#3cc9b2; --ok-tint:#11302b; --err:#f2786b; --err-tint:#3a1a17;
+  --warn:#f0b54d; --warn-tint:#352812; --info:#7ea9ec; --info-tint:#16243a;
+  --cell:#202227; --cell-pad:#17181c; --gutter:#16171b; --code:#15161a;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark;
+}
+
+/* ==========================================================================
+   2. BASE ELEMENTS
+   ========================================================================== */
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--sans);
+     -webkit-font-smoothing:antialiased;overflow-x:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+code,kbd,pre{font-family:var(--mono)}
+kbd{font-size:11px;border:1px solid var(--line-strong);border-bottom-width:2px;
+    border-radius:4px;padding:0 5px;background:var(--surface-2)}
+h1,h2,h3,h4{margin:0;line-height:1.25}
+a{color:var(--accent)}
+
+/* ==========================================================================
+   3. APP HEADER + TABS
+   ========================================================================== */
+.app-header{position:sticky;top:0;z-index:20;background:var(--bg);
+  border-bottom:1px solid var(--line)}
+.app-header .inner{max-width:1600px;margin:0 auto;padding:10px 16px;
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand .logo{width:30px;height:30px;border-radius:8px;background:var(--ink);
+  color:var(--bg);display:grid;place-items:center;font:700 13px var(--mono)}
+.brand h1{font-size:16px;letter-spacing:-.01em}
+.brand small{display:block;color:var(--muted);font-size:12px}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);
+  border-radius:10px;padding:3px;overflow-x:auto;max-width:100%}
+.tab{border:0;background:none;padding:6px 12px;border-radius:7px;cursor:pointer;
+  color:var(--muted);white-space:nowrap;font-weight:500}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.tab .n{font:600 11px var(--mono);opacity:.6;margin-right:6px}
+.icon-btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;
+  width:34px;height:34px;display:grid;place-items:center;cursor:pointer;color:var(--muted)}
+.icon-btn:hover{color:var(--ink)}
+
+main{max-width:1600px;margin:0 auto;padding:16px}
+.panel[hidden]{display:none}
+
+/* ==========================================================================
+   4. CARDS, BUTTONS, CHIPS, PILLS
+   ========================================================================== */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  box-shadow:var(--shadow);min-width:0}
+.card-h{display:flex;align-items:center;gap:8px;padding:10px 14px;
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.card-h h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  font-weight:600;margin-right:auto}
+.card-b{padding:14px}
+.stack{display:grid;gap:16px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-strong);
+  background:var(--surface);border-radius:8px;padding:6px 11px;cursor:pointer;
+  font-weight:500;white-space:nowrap;line-height:1.2}
+.btn:hover:not(:disabled){border-color:var(--ink)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn svg{width:15px;height:15px;flex:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.05);border-color:var(--accent)}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn.ghost{border-color:transparent;background:none}
+.btn.ghost:hover:not(:disabled){border-color:var(--line-strong)}
+.sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px}
+
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;
+  border:1px solid var(--line-strong);font:12px var(--mono);background:var(--surface-2);
+  margin:0 4px 4px 0}
+.chip small{font:10px var(--sans);color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.chip.cur{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip.cur small{color:inherit;opacity:.8}
+
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 10px;border-radius:999px;
+  font-size:12px;font-weight:600;background:var(--surface-2);border:1px solid var(--line)}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.pill.ready{color:var(--info);background:var(--info-tint);border-color:transparent}
+.pill.running{color:var(--accent);background:var(--accent-tint);border-color:transparent}
+.pill.running::before{animation:blink 1s infinite}
+.pill.halted{color:var(--ok);background:var(--ok-tint);border-color:transparent}
+.pill.stuck,.pill.error{color:var(--err);background:var(--err-tint);border-color:transparent}
+.pill.idle{color:var(--muted)}
+@keyframes blink{50%{opacity:.2}}
+
+/* ==========================================================================
+   5. TAB 1 – RUN & DEBUG LAYOUT
+   ========================================================================== */
+.toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:10px 12px}
+.speed{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px}
+.speed input{width:110px;accent-color:var(--accent)}
+.speed output{font:600 12px var(--mono);color:var(--ink);min-width:44px}
+.goto{display:flex;align-items:center;gap:4px}
+.goto input{width:76px;padding:5px 8px;border:1px solid var(--line-strong);border-radius:8px;
+  background:var(--surface)}
+.dirty{font-size:12px;color:var(--warn);background:var(--warn-tint);border-radius:6px;
+  padding:2px 8px}
+
+.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:16px;align-items:start}
+@media (max-width:1050px){.split{grid-template-columns:minmax(0,1fr)}}
+
+/* ---- Status strip above the tape ---- */
+.status{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:12px 14px 0}
+.stat{display:flex;align-items:baseline;gap:6px}
+.stat label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.stat b{font:600 15px var(--mono)}
+.stat select{font:600 14px var(--mono);border:1px solid var(--line-strong);border-radius:6px;
+  background:var(--surface);padding:1px 4px;max-width:180px}
+
+/* ---- The tape ----
+   .tape-wrap  scrolls horizontally; it has room above for the head marker
+               and room below for the cell index ruler.
+   .tape-track holds the cells in one row; the head marker is positioned
+               absolutely inside it, using the head cell's offsetLeft.     */
+.tape-wrap{position:relative;overflow-x:auto;padding:40px 0 26px;margin:6px 0 0;
+  scrollbar-width:thin}
+.tape-track{position:relative;display:inline-flex;padding:0 16px;min-width:100%}
+.cell{position:relative;width:40px;height:48px;flex:none;margin-right:-1px;
+  border:1px solid var(--line-strong);background:var(--cell);display:grid;place-items:center;
+  font:600 20px var(--mono);cursor:pointer;user-select:none}
+.cell:hover{background:var(--surface-2);z-index:1;border-color:var(--ink)}
+.cell.pad{background:var(--cell-pad)}
+.cell.blank{color:var(--faint);font-weight:400}
+.cell.head{background:var(--accent-tint);border-color:var(--accent);z-index:2;
+  box-shadow:0 0 0 2px var(--accent)}
+.cell.sel{outline:2px dashed var(--info);outline-offset:2px;z-index:3}
+.cell.wrote::after{content:"";position:absolute;inset:0;background:var(--accent);opacity:0;
+  animation:flash .6s ease-out}
+@keyframes flash{0%{opacity:.35}100%{opacity:0}}
+.cell .ix{position:absolute;top:calc(100% + 4px);left:0;right:0;text-align:center;
+  font:10px var(--mono);color:var(--muted);pointer-events:none}
+.headmark{position:absolute;top:-36px;display:flex;flex-direction:column;align-items:center;
+  transform:translateX(-50%);pointer-events:none;z-index:4}
+.headmark.anim{transition:left .14s ease}
+.headmark .lbl{background:var(--accent);color:var(--accent-ink);font:600 11px var(--mono);
+  border-radius:5px;padding:2px 7px;white-space:nowrap}
+.headmark .tri{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
+  border-top:7px solid var(--accent)}
+.tape-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 14px 12px}
+.next{flex:1;min-width:240px;font:13px var(--mono);padding:8px 10px;border-radius:8px;
+  background:var(--surface-2);border:1px solid var(--line)}
+.next.halted{background:var(--ok-tint);border-color:transparent}
+.next.stuck{background:var(--err-tint);border-color:transparent}
+.next .k{font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  margin-right:8px}
+.summary{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin-top:6px;font-size:12px}
+.summary span:nth-child(odd){color:var(--muted);font-family:var(--sans)}
+
+/* ---- Cell-edit popover ---- */
+.pop{position:fixed;z-index:50;background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);padding:10px;width:250px}
+.pop h4{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px}
+.pop .syms{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.pop .syms button{width:34px;height:34px;border:1px solid var(--line-strong);border-radius:6px;
+  background:var(--cell);font:600 16px var(--mono);cursor:pointer}
+.pop .syms button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pop .hint{font-size:11px;color:var(--muted);margin-top:6px}
+
+/* ---- Editor (textarea + line-number gutter) ----
+   The textarea does not wrap lines, so the gutter's line N always lines up
+   with the textarea's line N. The gutter is scrolled in JS to follow the
+   textarea's scrollTop. The container can be resized vertically.          */
+.editor{display:grid;grid-template-columns:auto minmax(0,1fr);height:560px;min-height:240px;
+  resize:vertical;overflow:hidden;border-top:1px solid var(--line);background:var(--code);
+  font:13px/20px var(--mono)}
+.gutter{overflow:hidden;background:var(--gutter);border-right:1px solid var(--line);
+  color:var(--faint);text-align:right;user-select:none}
+.gutter-in{padding:10px 8px 10px 12px;will-change:transform}
+.gutter-in div{height:20px}
+.gutter-in .err{color:var(--err);font-weight:700}
+.gutter-in .warn{color:var(--warn);font-weight:700}
+.gutter-in .err::before{content:"● ";font-size:9px}
+.gutter-in .warn::before{content:"▲ ";font-size:8px}
+.editor textarea{border:0;resize:none;padding:10px 12px;white-space:pre;overflow:auto;
+  background:transparent;outline:none;font:inherit;line-height:20px;tab-size:4;height:100%}
+.compile-out{border-top:1px solid var(--line);max-height:220px;overflow:auto;font-size:12.5px}
+.compile-out .row{display:flex;gap:8px;padding:5px 14px;border-bottom:1px solid var(--line);
+  align-items:flex-start}
+.compile-out .row:last-child{border-bottom:0}
+.compile-out .row[data-line]{cursor:pointer}
+.compile-out .row[data-line]:hover{background:var(--surface-2)}
+.compile-out .ico{font:700 12px var(--mono);width:16px;flex:none;text-align:center}
+.compile-out .ok .ico{color:var(--ok)} .compile-out .error .ico{color:var(--err)}
+.compile-out .warn .ico{color:var(--warn)} .compile-out .info .ico{color:var(--info)}
+.compile-out .skip .ico{color:var(--faint)}
+.compile-out .ln{font:11px var(--mono);color:var(--muted);flex:none}
+.compile-out .phase b{font-weight:600}
+.compile-out .phase span{color:var(--muted)}
+
+/* ---- Machine summary ---- */
+.minfo h3{font-size:17px}
+.minfo p{margin:2px 0 12px;color:var(--muted)}
+.minfo dl{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px 12px;margin:0}
+.minfo dt{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:3px}
+.minfo dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.empty{color:var(--muted);padding:18px 14px;text-align:center}
+
+/* ---- Rules table ---- */
+.rules-wrap{max-height:460px;overflow:auto}
+table.rules{width:100%;border-collapse:collapse;font-size:13px}
+table.rules th{position:sticky;top:0;background:var(--surface);z-index:1;text-align:left;
+  font:600 11px var(--sans);text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  padding:7px 6px;border-bottom:1px solid var(--line)}
+table.rules td{padding:3px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.rules tr.next td{background:var(--accent-tint)}
+table.rules tr.next td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+table.rules tr.last td{background:var(--surface-2)}
+table.rules tr.dup td{background:var(--err-tint)}
+table.rules select{font:13px var(--mono);border:1px solid transparent;border-radius:5px;
+  background:transparent;padding:2px 2px;max-width:130px;cursor:pointer}
+table.rules select:hover,table.rules select:focus{border-color:var(--line-strong);background:var(--surface)}
+table.rules .sno{font:12px var(--mono);color:var(--muted)}
+table.rules .hits{font:12px var(--mono);color:var(--muted);text-align:right}
+table.rules .arrow{color:var(--faint)}
+.bp{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--line-strong);
+  background:none;cursor:pointer;padding:0;display:block}
+.bp.on{background:var(--err);border-color:var(--err)}
+.del{border:0;background:none;color:var(--faint);cursor:pointer;padding:2px 4px;border-radius:4px}
+.del:hover{color:var(--err);background:var(--err-tint)}
+
+/* ---- Log ---- */
+.log{height:320px;overflow:auto;background:var(--code);font:12px/1.55 var(--mono);
+  padding:6px 0;resize:vertical;min-height:120px}
+.log .e{display:flex;gap:10px;padding:0 14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.log .e:hover{background:var(--surface-2)}
+.log .e[data-line]{cursor:pointer}
+.log .t{color:var(--faint);flex:none}
+.log .k{flex:none;width:58px;font-weight:700;font-size:10.5px;padding-top:1px;letter-spacing:.03em}
+.log .k.compile{color:var(--info)} .log .k.step{color:var(--muted)} .log .k.undo{color:var(--muted)}
+.log .k.edit{color:var(--accent)} .log .k.run{color:var(--ink)} .log .k.halt{color:var(--ok)}
+.log .k.info{color:var(--info)} .log .k.warn{color:var(--warn)} .log .k.error{color:var(--err)}
+.log .x{min-width:0}
+.filters{display:flex;gap:4px;flex-wrap:wrap}
+.filters button{border:1px solid var(--line);background:var(--surface);border-radius:999px;
+  padding:2px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
+.filters button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.count{font:12px var(--mono);color:var(--muted)}
+.follow{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+
+/* ==========================================================================
+   6. TAB 2 – CONFIG
+   ========================================================================== */
+.cfg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
+.field{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 14px;padding:10px 0;
+  border-bottom:1px solid var(--line);align-items:center}
+.field:last-child{border-bottom:0}
+.field label{font-weight:500}
+.field .help{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.field input[type=text],.field input[type=number]{width:170px;padding:5px 8px;border:1px solid var(--line-strong);
+  border-radius:7px;background:var(--surface);font-family:var(--mono)}
+.field input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+.field input[type=range]{width:170px;accent-color:var(--accent)}
+.note{font-size:13px;color:var(--muted);margin:0 0 6px}
+.banner{display:flex;align-items:center;gap:10px;background:var(--warn-tint);color:var(--ink);
+  border-radius:10px;padding:10px 14px;margin-bottom:16px}
+
+/* ==========================================================================
+   7. TAB 3 – EXAMPLES
+   ========================================================================== */
+.ex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,330px),1fr));gap:16px}
+.ex{display:flex;flex-direction:column}
+.ex .card-b{flex:1;display:flex;flex-direction:column;gap:8px}
+.ex h3{font-size:15px}
+.ex .file{font:12px var(--mono);color:var(--muted)}
+.ex .desc{color:var(--muted);margin:0}
+.ex .meta{display:flex;flex-wrap:wrap;gap:4px}
+.ex .acts{display:flex;gap:6px;margin-top:auto;padding-top:6px}
+.ex pre{margin:0;max-height:260px;overflow:auto;background:var(--code);border-top:1px solid var(--line);
+  padding:10px 14px;font-size:12px;line-height:1.5}
+
+/* ==========================================================================
+   8. TAB 4 – README
+   ========================================================================== */
+.readme{max-width:900px;margin:0 auto;padding:8px 28px 32px}
+.readme h2{font-size:22px;margin:28px 0 10px;letter-spacing:-.01em}
+.readme h2:first-child{margin-top:12px}
+.readme h3{font-size:16px;margin:22px 0 8px}
+.readme p,.readme li{color:var(--ink)}
+.readme pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px 14px;
+  overflow:auto;font-size:12.5px}
+.readme code{font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px}
+.readme pre code{background:none;border:0;padding:0}
+.readme table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+.readme th,.readme td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.readme th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.toc{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}
+.toc a{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:2px 10px;text-decoration:none;color:var(--muted)}
+.toc a:hover{color:var(--ink);border-color:var(--ink)}
+
+/* ---- Toast (transient message at the bottom of the screen) ---- */
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);opacity:0;
+  background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:8px;font-size:13px;
+  transition:.2s;z-index:60;pointer-events:none;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media (max-width:640px){
+  main{padding:12px}
+  .app-header .inner{padding:8px 12px}
+  .brand small{display:none}
+  .minfo dl{grid-template-columns:1fr}
+  .readme{padding:4px 4px 24px}
+}
+</style>
+</head>
+<body>
+
+<!-- ======================================================================
+     HEADER: product name, the four tabs and the theme switch.
+     Tabs are real buttons with role="tab"; the matching panels below
+     carry role="tabpanel" and are shown/hidden by switchTab() in the UI
+     script.
+     ====================================================================== -->
+<header class="app-header">
+  <div class="inner">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">TM</div>
+      <div><h1>Turing Machine Studio</h1><small>Compile, run and debug .tm machines in the browser</small></div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" data-tab="run" aria-selected="true"><span class="n">1</span>Run &amp; Debug</button>
+      <button class="tab" role="tab" data-tab="config" aria-selected="false"><span class="n">2</span>Config &amp; Defaults</button>
+      <button class="tab" role="tab" data-tab="examples" aria-selected="false"><span class="n">3</span>Examples</button>
+      <button class="tab" role="tab" data-tab="readme" aria-selected="false"><span class="n">4</span>README</button>
+    </nav>
+    <button class="icon-btn" id="themeBtn" title="Theme: auto / light / dark" aria-label="Switch theme">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- ====================================================================
+       TAB 1 – RUN & DEBUG
+       Layout (top to bottom):
+         1. toolbar   – compile, reset, rewind, back, step, run, to-end,
+                        speed, go-to-step
+         2. tape card – status strip, the tape with its head, the
+                        "next transition" preview / halt summary
+         3. split     – left: machine definition editor + compiler output
+                        right: machine summary + editable rules table
+         4. log       – the complete, filterable execution log
+       ==================================================================== -->
+  <section class="panel stack" id="panel-run" role="tabpanel">
+    <div class="card toolbar" role="toolbar" aria-label="Execution controls">
+      <button class="btn primary" id="bCompile" title="Compile the machine in the editor (Ctrl/⌘+Enter)">ICON:compile Compile</button>
+      <button class="btn" id="bReset" title="Reset the tape and state to the machine's input (R)">ICON:reset Reset</button>
+      <span class="sep"></span>
+      <button class="btn" id="bStart" title="Rewind to step 0 (Home)">ICON:rewind</button>
+      <button class="btn" id="bBack" title="Step back – undo the last step or edit (←)">ICON:back Back</button>
+      <button class="btn" id="bStep" title="Execute one transition (→)">ICON:step Step</button>
+      <button class="btn dark" id="bRun" title="Run / pause (Space)">ICON:play Run</button>
+      <button class="btn" id="bEnd" title="Run at full speed until the machine stops (End)">ICON:ffwd To end</button>
+      <span class="sep"></span>
+      <div class="speed"><label for="speed">Speed</label><input type="range" id="speed" min="0" max="6" step="1"><output id="speedOut"></output></div>
+      <span class="sep"></span>
+      <div class="goto"><input type="number" id="gotoN" min="0" placeholder="step #" aria-label="Step number"><button class="btn" id="bGoto">Go to step</button></div>
+      <span style="margin-left:auto"></span>
+      <span class="dirty" id="dirty" hidden>Edited since last compile</span>
+      <span class="pill idle" id="pill">Not compiled</span>
+    </div>
+
+    <div class="card">
+      <div class="status" id="status">
+        <div class="stat"><label for="stateSel">State</label><select id="stateSel" title="Change the current state on the fly"></select></div>
+        <div class="stat"><label>Step</label><b id="sStep">–</b></div>
+        <div class="stat"><label>Head</label><b id="sHead">–</b></div>
+        <div class="stat"><label>Reading</label><b id="sRead">–</b></div>
+        <div class="stat"><label>Tape used</label><b id="sUsed">–</b></div>
+        <span style="margin-left:auto"></span>
+        <button class="btn sm ghost" id="bTapeToInput" title="Write the current tape and head position back into the editor as Input and Position">Save tape → Input</button>
+      </div>
+      <div class="tape-wrap" id="tapeWrap">
+        <div class="tape-track" id="tape"></div>
+      </div>
+      <div class="tape-foot"><div class="next" id="next"><span class="k">Next</span>Compile a machine to begin.</div></div>
+    </div>
+
+    <div class="split">
+      <div class="card">
+        <div class="card-h">
+          <h2>Machine definition</h2>
+          <button class="btn sm" id="bNew" title="Start a new machine from a template">ICON:plus New</button>
+          <button class="btn sm" id="bOpen" title="Open a .tm file from your computer">ICON:upload Open</button>
+          <button class="btn sm" id="bSave" title="Download the editor contents as a .tm file">ICON:download Save .tm</button>
+          <input type="file" id="fileIn" accept=".tm,.txt,text/plain" hidden>
+        </div>
+        <div class="editor" id="editorBox">
+          <div class="gutter"><div class="gutter-in" id="gutter"></div></div>
+          <textarea id="editor" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off" aria-label="Turing machine source"></textarea>
+        </div>
+        <div class="card-h" style="border-top:1px solid var(--line);border-bottom:0"><h2>Compiler output</h2><span class="count" id="compileSummary"></span></div>
+        <div class="compile-out" id="compileOut"><div class="empty">Press Compile to check the machine.</div></div>
+      </div>
+
+      <div class="stack">
+        <div class="card">
+          <div class="card-h"><h2>Machine</h2></div>
+          <div class="card-b minfo" id="minfo"><div class="empty">No machine compiled yet.</div></div>
+        </div>
+        <div class="card">
+          <div class="card-h">
+            <h2>Transition rules</h2>
+            <span class="count" id="rulesCount"></span>
+            <button class="btn sm" id="bSort" title="Sort rules by state, then read symbol">Sort</button>
+            <button class="btn sm" id="bAddRule" title="Add a rule (defaults to the current state and symbol)">ICON:plus Add rule</button>
+          </div>
+          <div class="rules-wrap" id="rulesWrap"><div class="empty">No rules yet.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h2>Execution log</h2>
+        <div class="filters" id="filters">
+          <button data-f="all" aria-pressed="true">All</button>
+          <button data-f="compile" aria-pressed="false">Compile</button>
+          <button data-f="steps" aria-pressed="false">Steps</button>
+          <button data-f="edits" aria-pressed="false">Edits</button>
+          <button data-f="run" aria-pressed="false">Run / Halt</button>
+          <button data-f="issues" aria-pressed="false">Warnings &amp; errors</button>
+        </div>
+        <span class="count" id="logCount"></span>
+        <label class="follow"><input type="checkbox" id="follow" checked> Follow</label>
+        <button class="btn sm" id="bLogDl">ICON:download Download</button>
+        <button class="btn sm" id="bLogClear">Clear</button>
+      </div>
+      <div class="log" id="log" aria-live="off"></div>
+    </div>
+  </section>
+
+  <!-- ====================================================================
+       TAB 2 – CONFIG & DEFAULTS (form is generated from CONFIG_FIELDS)
+       ==================================================================== -->
+  <section class="panel" id="panel-config" role="tabpanel" hidden>
+    <div class="banner" id="cfgBanner" hidden>
+      <span>Some settings change how machines are compiled. Recompile to apply them to the current machine.</span>
+      <button class="btn primary sm" id="bCfgRecompile">Recompile now</button>
+    </div>
+    <div class="cfg-grid" id="cfgGrid"></div>
+    <div style="margin-top:16px;display:flex;gap:8px"><button class="btn" id="bCfgReset">Reset all settings to defaults</button></div>
+  </section>
+
+  <!-- ====================================================================
+       TAB 3 – EXAMPLES (cards generated from the EXAMPLES array)
+       ==================================================================== -->
+  <section class="panel" id="panel-examples" role="tabpanel" hidden>
+    <p class="note" style="margin-bottom:14px">The example machines from the repository. <b>Load</b> puts the machine in the editor on the Run &amp; Debug tab and compiles it.</p>
+    <div class="ex-grid" id="exGrid"></div>
+  </section>
+
+  <!-- ====================================================================
+       TAB 4 – README (static documentation)
+       ==================================================================== -->
+  <section class="panel" id="panel-readme" role="tabpanel" hidden>
+    <article class="card readme" id="readme"><h2 id="r-overview">Turing Machine Studio</h2>
+<p>A browser version of the command-line simulator <code>Turing.py</code>. It reads the same <code>.tm</code> files, compiles them with the same checks (plus a few more), and lets you run, step backwards, edit the tape and change rules while the machine is running. Everything is in one HTML file: no install, no server, no internet connection needed.</p>
+<nav class="toc">
+  <a href="#r-quick">Quick start</a><a href="#r-tabs">The four tabs</a><a href="#r-format">File format</a>
+  <a href="#r-semantics">How a step works</a><a href="#r-debug">Debugging</a><a href="#r-keys">Keyboard</a>
+  <a href="#r-diff">Differences from Turing.py</a><a href="#r-code">Code structure</a><a href="#r-faq">Troubleshooting</a>
+</nav>
+
+<h2 id="r-quick">Quick start</h2>
+<ol>
+  <li>Open <b>Examples</b> and press <b>Load</b> on any machine, e.g. <i>Add Two Unary Numbers</i>.</li>
+  <li>On <b>Run &amp; Debug</b>, press <b>Step</b> (or <kbd>→</kbd>) to execute one transition, or <b>Run</b> (<kbd>Space</kbd>) to animate.</li>
+  <li>Press <b>Back</b> (<kbd>←</kbd>) to undo a step. Every step and edit can be undone.</li>
+  <li>Edit the text, then press <b>Compile</b> (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd>).</li>
+  <li><b>Save .tm</b> downloads the machine; it runs unchanged with <code>python3 Turing.py file.tm</code>.</li>
+</ol>
+
+<h2 id="r-tabs">The four tabs</h2>
+<h3>1 · Run &amp; Debug</h3>
+<ul>
+  <li><b>Toolbar</b> – Compile, Reset, Rewind to step 0, Back, Step, Run/Pause, To end (full speed), run speed, and Go to step <i>n</i>. The pill on the right shows the status: <i>Not compiled</i>, <i>Ready</i>, <i>Running</i>, <i>Halted</i>, <i>Stuck</i> or <i>Compile errors</i>.</li>
+  <li><b>Status strip</b> – current state (a drop-down: change it by hand), step count, head position, the symbol under the head, and how much tape has been used. <b>Save tape → Input</b> writes the current tape and head position back into the editor as <code>Input</code> and <code>Position</code>.</li>
+  <li><b>Tape</b> – the used part of the tape plus a few blank cells either side (shaded). The orange marker is the head, labelled with the current state. <b>Click</b> a cell to change its symbol, <b>double-click</b> to move the head there.</li>
+  <li><b>Next</b> – which rule fires next and what it will do. When the machine stops it shows the result: time (steps), space (tape used), input and output. If no rule applies it offers to add one.</li>
+  <li><b>Machine definition</b> – the editor with line numbers. Lines with errors are marked in the gutter. <b>New</b>, <b>Open</b> (load a .tm from disk) and <b>Save .tm</b> sit above it.</li>
+  <li><b>Compiler output</b> – each compile phase with ✓/✗, then every error (✗), warning (!) and note (i). Click one to jump to its line.</li>
+  <li><b>Machine</b> – everything the compiler understood: name, description, alphabet (blank and wildcard labelled), states (start and final labelled, the current one highlighted), shift symbols, input and rule coverage.</li>
+  <li><b>Transition rules</b> – the rules as an editable table. Change any cell from its drop-down; the change applies immediately, even while running, and is written back into the editor text. The row that fires next is highlighted; <i>Hits</i> counts how often each rule fired. The dot on the left sets a <b>breakpoint</b>. ✕ deletes a rule; <b>Add rule</b> and <b>Sort</b> are in the header.</li>
+  <li><b>Execution log</b> – a complete record of compiles, every step (with a tape snapshot), undos, edits, runs, pauses and the final summary. Filter it, follow it, or <b>Download</b> it as text.</li>
+</ul>
+<h3>2 · Config &amp; Defaults</h3>
+<p>Defaults used when a file leaves a key out (identical to Turing.py), run speed, the safety step limit, logging detail, two semantic choices for the wildcard, and editor behaviour. Settings are kept in the browser. Settings that change how machines compile show a <i>Recompile now</i> banner.</p>
+<h3>3 · Examples</h3>
+<p>The ten machines from the repository, each with its name, description, size and input. <b>Load</b> puts it in the editor and compiles it; <b>View source</b> shows the file. The four-state busy beaver includes the corrected rule 8 (<code>D,1 → 0,A,R</code>); the original <code>L</code> never halts.</p>
+<h3>4 · README</h3>
+<p>This page.</p>
+
+<h2 id="r-format">The .tm file format</h2>
+<p>A machine file is plain text. Lines starting with <code>#</code> are comments; blank lines are ignored. Every other line is one of: a setting (<code>Key = Value</code>), the rules header (starting with <code>S.No</code>), or a rule row (starting with a number).</p>
+<table>
+  <thead><tr><th>Key</th><th>Meaning</th><th>Default</th></tr></thead>
+  <tbody>
+    <tr><td><code>Name</code></td><td>Name shown in the summary</td><td>Turing Machine</td></tr>
+    <tr><td><code>Description</code></td><td>Free text</td><td>Turing machine</td></tr>
+    <tr><td><code>Tape_Alphabet</code></td><td>Comma-separated list of every symbol that may be on the tape. One character each.</td><td><b>required</b></td></tr>
+    <tr><td><code>Blank_Symbol</code></td><td>What an unwritten cell contains. Must be in the alphabet.</td><td><code>#</code></td></tr>
+    <tr><td><code>Any_Symbol_Wild_Card</code></td><td>In the Read column, matches any symbol that has no exact rule.</td><td><code>?</code></td></tr>
+    <tr><td><code>Input</code></td><td>Initial tape contents, starting at cell 0.</td><td>empty</td></tr>
+    <tr><td><code>Position</code></td><td>Initial head cell (0 = first character). May be beyond the input.</td><td><code>0</code></td></tr>
+    <tr><td><code>States</code></td><td>Comma-separated list of all states. Names are free-form.</td><td><b>required</b></td></tr>
+    <tr><td><code>Initial_State</code></td><td>The start state.</td><td><b>required</b></td></tr>
+    <tr><td><code>Final_States</code></td><td>Comma-separated list; entering any of them halts the machine.</td><td><b>required</b></td></tr>
+    <tr><td><code>Left_Shift_Symbol</code>, <code>Right_Shift_Symbol</code>, <code>No_Shift_Symbol</code></td><td>The words used in the Move column.</td><td><code>L</code>, <code>R</code>, <code>N</code></td></tr>
+  </tbody>
+</table>
+<p>Rules follow an optional header line. Each rule row has six comma-separated columns; spaces and tabs are ignored:</p>
+<pre><code>S.No, Current_State, Input_Alphabet, Output_Alphabet, New_State, Left_Right_No_Shift
+1,    Q0,            0,              x,               Q1,        R</code></pre>
+<p>Read it as: <i>rule 1 — in state Q0, reading 0, write x, go to Q1, move right.</i> At most one rule may exist per (state, read symbol); that keeps the machine deterministic.</p>
+
+<h2 id="r-semantics">How a step works</h2>
+<ol>
+  <li>Read the symbol under the head (a never-written cell reads as the blank).</li>
+  <li>Find the rule for (current state, symbol). If none exists, use the state's wildcard rule. If there is neither, the machine is <b>stuck</b> and stops.</li>
+  <li>Write the rule's output symbol, change to its new state, and move the head left, right or not at all.</li>
+  <li>If the new state is a final state, the machine <b>halts</b>.</li>
+</ol>
+<p>The tape is unbounded in both directions. "Tape used" (space complexity) is the length of the stretch from the leftmost to the rightmost cell the head has visited, the same measure Turing.py prints. "Steps" is the time complexity.</p>
+
+<h2 id="r-debug">Debugging features</h2>
+<ul>
+  <li><b>Step back</b> undoes exactly one entry: a step, a cell edit, a head move or a state change. Only the change itself is stored, so long runs can be rewound cheaply.</li>
+  <li><b>Go to step</b> moves backwards (by undoing) or forwards (by executing) to any step number.</li>
+  <li><b>Breakpoints</b> on rules pause a Run just before that rule fires.</li>
+  <li><b>Safety limit</b> pauses a Run after a set number of steps (default 100,000), so a machine that never halts cannot freeze the page.</li>
+  <li><b>Edit on the fly</b>: change tape cells, move the head, switch the state, or edit, add and delete rules at any point. All edits are logged and undoable (rule edits are undone by editing back).</li>
+  <li><b>Stuck?</b> The Next line offers to add the missing rule for the exact (state, symbol) pair.</li>
+</ul>
+
+<h2 id="r-keys">Keyboard shortcuts</h2>
+<table>
+  <tbody>
+    <tr><td><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd></td><td>Compile (works anywhere, including in the editor)</td></tr>
+    <tr><td><kbd>→</kbd></td><td>Step forward</td></tr>
+    <tr><td><kbd>←</kbd></td><td>Step back</td></tr>
+    <tr><td><kbd>Space</kbd></td><td>Run / pause</td></tr>
+    <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td>Rewind to step 0 / run to the end at full speed</td></tr>
+    <tr><td><kbd>R</kbd></td><td>Reset</td></tr>
+    <tr><td>symbol key</td><td>With a tape cell selected, write that symbol</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Close the cell editor</td></tr>
+  </tbody>
+</table>
+<p>Run shortcuts apply on the Run &amp; Debug tab when the focus is not in a text field.</p>
+
+<h2 id="r-diff">Differences from Turing.py</h2>
+<p>Any file that runs with Turing.py runs here with the same result. These changes fix problems found when reviewing the Python code:</p>
+<ul>
+  <li>Spaces around commas in lists are allowed (<code>Tape_Alphabet = 0, 1, #</code>).</li>
+  <li>Values may contain <code>=</code>, and <code>=</code> may be used as a tape symbol.</li>
+  <li>An empty <code>Input</code>, or a <code>Position</code> past the end of the input, pads the tape with blanks instead of crashing.</li>
+  <li>If the initial state is already final, the machine halts at step 0 instead of executing one transition.</li>
+  <li>A missing rule stops the machine as <i>stuck</i> with a clear message, rather than raising an exception.</li>
+  <li>Unknown keys (typos such as <code>Final_State</code>) are reported with a suggestion instead of being silently ignored; missing required keys are reported up front.</li>
+  <li>Indented comments are recognised. All invalid input characters are listed, not just the first.</li>
+  <li>Extra static analysis: unreachable states, rules that start in a final state, states with no rules, and no reachable final state.</li>
+  <li>Stepping back to step 0 works, and history stores only the changes (not a deep copy of the machine on every step).</li>
+</ul>
+<p>Two behaviours are configurable on the Config tab and default to Turing.py's: the wildcard must be in <code>Tape_Alphabet</code>, and a wildcard in the Write column writes the wildcard character itself.</p>
+
+<h2 id="r-code">Code structure</h2>
+<p>The file has three scripts, each commented in detail:</p>
+<ul>
+  <li><code>&lt;script id="engine"&gt;</code> – the engine, exposed as the global <code>TM</code>. It has no DOM access. <code>TM.compile(text, cfg)</code> runs the phases <i>read → strip → parse → validate → build</i> and returns the machine plus all diagnostics. <code>TM.createSim</code>, <code>TM.step</code> and <code>TM.undo</code> run it; <code>editCell</code>, <code>moveHead</code> and <code>setState</code> make undoable edits.</li>
+  <li><code>&lt;script id="examples"&gt;</code> – the example <code>.tm</code> files as text.</li>
+  <li><code>&lt;script id="ui"&gt;</code> – the interface, in lettered sections A–L: helpers, configuration, state, log, editor, compile, execution, tape, rules table, rendering, examples, and start-up. Changes call <code>scheduleRender()</code>, which repaints at most once per animation frame.</li>
+</ul>
+<p>To add a built-in example, add an entry <code>{file: "name.tm", text: "…"}</code> to the <code>EXAMPLES</code> array.</p>
+
+<h2 id="r-faq">Troubleshooting</h2>
+<ul>
+  <li><b>"Edited since last compile"</b> – the text differs from what is running. Press Compile to apply it. Editing rules in the table does not trigger this; those edits are applied to both.</li>
+  <li><b>Run is disabled</b> – the machine has halted or is stuck. Press Reset, step back, or fix the tape or rules.</li>
+  <li><b>Run paused on its own</b> – a breakpoint fired or the safety limit was reached; the log says which.</li>
+  <li><b>Settings or last machine not remembered</b> – the browser is blocking local storage (e.g. a private window). Everything else works.</li>
+</ul>
+</article>
+  </section>
+</main>
+
+<!-- Popover used to edit a single tape cell (opened by clicking a cell). -->
+<div class="pop" id="pop" hidden role="dialog" aria-label="Edit tape cell">
+  <h4 id="popTitle">Cell</h4>
+  <div class="syms" id="popSyms"></div>
+  <button class="btn sm" id="popHead" style="width:100%;justify-content:center">Move head here</button>
+  <div class="hint">Tip: with a cell selected, type a symbol on the keyboard. Esc closes.</div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<!-- ==========================================================================
+     ENGINE
+     --------------------------------------------------------------------------
+     Pure logic, no DOM access. Exposes a single global object `TM`.
+
+     Vocabulary used throughout:
+       machine (m) – the compiled, validated description of a Turing machine
+                     (alphabet, states, rules, …). Produced by TM.compile().
+       sim         – the *running* configuration of a machine: tape cells,
+                     head position, current state, step counter and the
+                     undo history. Produced by TM.createSim(machine).
+       rule        – one row of the transition table:
+                     (state, read) → (write, next, move)
+     ========================================================================== -->
+<script id="engine">
+'use strict';
+const TM = (() => {
+
+  /* ------------------------------------------------------------------------
+   * KEYS RECOGNISED IN A .tm FILE
+   * These mirror the constants in Turing.py exactly.
+   * --------------------------------------------------------------------- */
+
+  /** Keys whose value is a single string ("Key = value"). */
+  const SIMPLE_KEYS = ['Name', 'Description', 'Blank_Symbol', 'Input', 'Initial_State',
+    'Position', 'Any_Symbol_Wild_Card', 'Left_Shift_Symbol', 'Right_Shift_Symbol', 'No_Shift_Symbol'];
+
+  /** Keys whose value is a comma separated list ("Key = a,b,c"). */
+  const ARRAY_KEYS = ['Tape_Alphabet', 'States', 'Final_States'];
+
+  /** Keys that appear in some example files but carry no meaning. */
+  const IGNORED_KEYS = ['Shift'];
+
+  /** Keys a machine file must define (there is no sensible default). */
+  const REQUIRED_KEYS = ['Tape_Alphabet', 'States', 'Initial_State', 'Final_States'];
+
+  /** Every key the parser understands; used for "did you mean …?" hints. */
+  const ALL_KEYS = [...SIMPLE_KEYS, ...ARRAY_KEYS, ...IGNORED_KEYS];
+
+  /**
+   * Default configuration. The `defaults` block is what Turing.py's
+   * set_defaults_to_turing_machine_dictionary() fills in when a file omits
+   * a key. Everything else controls how this browser version behaves.
+   */
+  const CONFIG_DEFAULTS = {
+    defaults: {
+      Name: 'Turing Machine',
+      Description: 'Turing machine',
+      Blank_Symbol: '#',
+      Position: '0',
+      Any_Symbol_Wild_Card: '?',
+      Left_Shift_Symbol: 'L',
+      Right_Shift_Symbol: 'R',
+      No_Shift_Symbol: 'N',
+      Input: ''                    // Turing.py has no default; empty tape is the natural one
+    },
+    speed: 3,                      // index into SPEEDS (UI); 3 = 8 steps / second
+    maxSteps: 100000,              // safety limit: a single Run pauses after this many steps
+    logEachStep: true,             // write one log line per executed step
+    logTape: true,                 // include a tape snapshot in each step line
+    tapePadding: 6,                // blank cells shown beyond the used part of the tape
+    wildcardWriteKeeps: false,     // false = Python behaviour (wildcard char itself is written)
+    requireWildcardInAlphabet: true, // true = Python behaviour
+    syncTableToText: true,         // rule-table edits are written back into the editor text
+    autoCompile: true,             // compile automatically when a machine is loaded
+    restoreLast: true              // reopen the last edited machine on page load
+  };
+
+  /** Separator used to build the (state, symbol) lookup key. Cannot occur in a .tm file. */
+  const K = '\u0001';
+
+  /** A rule row is any line that starts with an integer followed by a comma (the S.No column). */
+  const RULE_RE = /^\d+\s*,/;
+
+  /** The header row of the transition table starts with "S.No". */
+  const HEADER_RE = /^S\.?\s*No\b/i;
+
+  /* ------------------------------------------------------------------------
+   * SMALL HELPERS
+   * --------------------------------------------------------------------- */
+
+  /**
+   * Classify one source line.
+   * The order of the tests matters:
+   *   - comment/blank lines are dropped first (as Turing.py does),
+   *   - a rule row is recognised by its leading number BEFORE we look for
+   *     '=', so a machine may use '=' as a tape symbol,
+   *   - only then is the line treated as "Key = Value".
+   * @param {string} raw  the line exactly as typed
+   * @returns {'blank'|'comment'|'header'|'rule'|'kv'|'unknown'}
+   */
+  function classify(raw) {
+    const t = raw.trim();
+    if (!t) return 'blank';
+    // Turing.py tests startswith('#') on the raw line; we trim first so an
+    // indented comment is also recognised (one of the review fixes).
+    if (t.startsWith('#')) return 'comment';
+    if (HEADER_RE.test(t)) return 'header';
+    if (RULE_RE.test(t)) return 'rule';
+    if (t.includes('=')) return 'kv';
+    return 'unknown';
+  }
+
+  /**
+   * Split a list value such as "Q0, Q1 ,Q2" into ["Q0","Q1","Q2"].
+   * Each item is trimmed (Turing.py does not trim, which made
+   * "0, 1, #" fail validation) and empty items are dropped.
+   */
+  function splitList(value) {
+    return value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+  }
+
+  /** Return the values that occur more than once in an array. */
+  function duplicates(arr) {
+    const seen = new Set(), dup = new Set();
+    for (const v of arr) { if (seen.has(v)) dup.add(v); seen.add(v); }
+    return [...dup];
+  }
+
+  /**
+   * Levenshtein edit distance between two strings, used to suggest the
+   * intended key when a file contains a typo such as "Final_State".
+   */
+  function editDistance(a, b) {
+    a = a.toLowerCase(); b = b.toLowerCase();
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++)
+      for (let j = 1; j <= b.length; j++)
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1,
+          d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+
+  /** Best known key within edit distance 3 of `key`, or null. */
+  function suggestKey(key) {
+    let best = null, bestD = 4;
+    for (const k of ALL_KEYS) { const dd = editDistance(key, k); if (dd < bestD) { best = k; bestD = dd; } }
+    return best;
+  }
+
+  /** Format a list for messages: ["a","b"] -> "{a, b}". */
+  const fmtList = arr => '{' + arr.join(', ') + '}';
+
+  /* ------------------------------------------------------------------------
+   * COMPILER
+   * --------------------------------------------------------------------- */
+
+  /**
+   * Compile machine source text into a machine object.
+   *
+   * The work is organised in the same phases as Turing.py's main():
+   *   1. Read          – split the text into lines
+   *   2. Strip         – drop comments and blank lines
+   *   3. Parse         – turn "Key = Value" lines into settings and rule
+   *                      rows into rule objects
+   *   4. Validate      – static checks ("compile-time errors"): undefined
+   *                      states, symbols outside the alphabet, duplicate
+   *                      rules, bad shift symbols, …  plus warnings from a
+   *                      small static analysis (unreachable states, …)
+   *   5. Build         – build the transition function δ as a hash map
+   *                      from (state, symbol) to rule
+   *
+   * Nothing throws: every problem is reported as a diagnostic with a
+   * level ('error' | 'warn' | 'info') and, when known, a source line, so
+   * the UI can list all problems at once and jump to them.
+   *
+   * @param {string} text  the machine source
+   * @param {object} cfg   the configuration (see CONFIG_DEFAULTS)
+   * @returns {{ok:boolean, machine:object|null, diags:object[], phases:object[]}}
+   */
+  function compile(text, cfg) {
+    const diags = [];                       // all diagnostics, in order
+    const phases = [];                      // {name, detail, status:'ok'|'error'|'skip'}
+    const diag = (level, msg, line) => diags.push({ level, msg, line: line || null });
+    const errorCount = () => diags.filter(d => d.level === 'error').length;
+
+    /* ---- Phase 1: read ------------------------------------------------ */
+    const lines = text.split(/\r?\n/);
+    phases.push({ name: 'Read source', detail: `${lines.length} lines, ${text.length} characters`, status: 'ok' });
+
+    /* ---- Phase 2: strip comments and blank lines ----------------------- */
+    const kept = [];                        // significant lines with their 1-based line number
+    let removed = 0;
+    lines.forEach((raw, i) => {
+      const kind = classify(raw);
+      if (kind === 'blank' || kind === 'comment') { removed++; return; }
+      kept.push({ text: raw.trim(), kind, line: i + 1 });
+    });
+    phases.push({ name: 'Strip comments & blank lines', detail: `removed ${removed}, ${kept.length} significant lines remain`, status: 'ok' });
+
+    /* ---- Phase 3: parse ------------------------------------------------ */
+    const settings = {};                    // key -> string | string[]
+    const settingLine = {};                 // key -> line number where it was set
+    const rules = [];                       // rule objects, in file order
+    let headerLine = null;                  // line of the "S.No, ..." header, if any
+
+    for (const L of kept) {
+      if (L.kind === 'header') { headerLine = headerLine || L.line; continue; }
+
+      if (L.kind === 'rule') {
+        // Like Turing.py: remove all spaces and tabs, then split on commas.
+        const parts = L.text.replace(/[ \t]/g, '').split(',');
+        if (parts.length !== 6) {
+          diag('error', `Rule row must have 6 columns (S.No, State, Read, Write, Next state, Move) but has ${parts.length}`, L.line);
+          continue;
+        }
+        if (parts.some(p => p === '')) { diag('error', 'Rule row has an empty column', L.line); continue; }
+        const [sno, state, read, write, next, move] = parts;
+        rules.push({ sno: Number(sno), state, read, write, next, move, line: L.line, hits: 0, bp: false, dup: false });
+        continue;
+      }
+
+      if (L.kind === 'kv') {
+        // Split on the FIRST '=' only, so values may contain '=' (review fix).
+        const at = L.text.indexOf('=');
+        const key = L.text.slice(0, at).trim();
+        const value = L.text.slice(at + 1).trim();
+        if (SIMPLE_KEYS.includes(key) || ARRAY_KEYS.includes(key)) {
+          if (key in settings) diag('warn', `"${key}" is set more than once; this value overrides line ${settingLine[key]}`, L.line);
+          settings[key] = ARRAY_KEYS.includes(key) ? splitList(value) : value;
+          settingLine[key] = L.line;
+        } else if (IGNORED_KEYS.includes(key)) {
+          diag('info', `"${key}" is informational only; the shift symbols come from Left/Right/No_Shift_Symbol`, L.line);
+        } else {
+          // Turing.py silently ignores unknown keys, so a typo such as
+          // "Final_State" surfaced later as a KeyError. Here it is reported.
+          const s = suggestKey(key);
+          diag('warn', `Unknown key "${key}" is ignored${s ? ` — did you mean "${s}"?` : ''}`, L.line);
+        }
+        continue;
+      }
+
+      diag('error', `Unrecognised line "${L.text.slice(0, 40)}" — expected "Key = Value", the "S.No, …" header, or a rule row starting with a number`, L.line);
+    }
+    const parseErrors = errorCount();
+    phases.push({ name: 'Parse settings & rules', detail: `${Object.keys(settings).length} settings, ${rules.length} rule rows`, status: parseErrors ? 'error' : 'ok' });
+
+    /* ---- Apply defaults for keys the file left out -------------------- */
+    const usedDefaults = [];
+    const get = key => {
+      if (key in settings) return settings[key];
+      usedDefaults.push(key);
+      return cfg.defaults[key];
+    };
+    const m = {
+      name: get('Name'),
+      description: get('Description'),
+      blank: get('Blank_Symbol'),
+      wildcard: get('Any_Symbol_Wild_Card'),
+      L: get('Left_Shift_Symbol'),
+      R: get('Right_Shift_Symbol'),
+      N: get('No_Shift_Symbol'),
+      input: get('Input'),
+      positionText: get('Position'),
+      position: 0,
+      alphabet: settings.Tape_Alphabet || [],
+      states: settings.States || [],
+      initial: settings.Initial_State,
+      finals: settings.Final_States || [],
+      rules,
+      settingLine,
+      headerLine,
+      map: new Map()
+    };
+    if (usedDefaults.length) {
+      diag('info', 'Defaults used for: ' + usedDefaults.map(k => `${k} = ${cfg.defaults[k] === '' ? '(empty)' : cfg.defaults[k]}`).join(', '));
+    }
+
+    /* ---- Phase 4: validate -------------------------------------------- */
+    let checks = 0;
+    /** Record one check; report `msg` at `level` when `cond` is false. */
+    const check = (cond, msg, line, level = 'error') => { checks++; if (!cond) diag(level, msg, line); return cond; };
+    const ln = key => settingLine[key] || null;
+    const errorsBeforeValidation = errorCount();
+
+    // Required keys.
+    for (const k of REQUIRED_KEYS) check(k in settings, `Missing required key "${k}"`, null);
+
+    const A = new Set(m.alphabet);          // tape alphabet
+    const S = new Set(m.states);            // states
+    const hasA = m.alphabet.length > 0;
+    const hasS = m.states.length > 0;
+
+    if (hasA) {
+      duplicates(m.alphabet).forEach(s => diag('warn', `Symbol "${s}" is listed more than once in Tape_Alphabet`, ln('Tape_Alphabet')));
+      // The tape stores one character per cell, so every symbol must be one character.
+      m.alphabet.forEach(s => check([...s].length === 1, `Tape symbol "${s}" must be a single character (each tape cell holds one character)`, ln('Tape_Alphabet')));
+      check(A.has(m.blank), `Blank symbol "${m.blank}" is not in Tape_Alphabet ${fmtList(m.alphabet)}`, ln('Blank_Symbol') || ln('Tape_Alphabet'));
+      if (cfg.requireWildcardInAlphabet) {
+        check(A.has(m.wildcard), `Wildcard symbol "${m.wildcard}" is not in Tape_Alphabet (required, as in Turing.py; this can be relaxed in Config)`, ln('Any_Symbol_Wild_Card') || ln('Tape_Alphabet'));
+      }
+      // Report every input character that is outside the alphabet (Turing.py stops at the first).
+      const bad = [...new Set([...m.input].filter(c => !A.has(c)))];
+      check(bad.length === 0, `Input contains symbol(s) not in Tape_Alphabet: ${bad.map(c => `"${c}"`).join(', ')}`, ln('Input'));
+    }
+    check(m.blank !== m.wildcard, `Blank symbol and wildcard symbol must differ (both are "${m.blank}")`, ln('Any_Symbol_Wild_Card'));
+    check(new Set([m.L, m.R, m.N]).size === 3, `Left, Right and No-shift symbols must all differ (got ${m.L}, ${m.R}, ${m.N})`, ln('Left_Shift_Symbol'));
+
+    // Head position: a non-negative integer. Turing.py required it to be
+    // inside the input; here the tape is padded with blanks instead.
+    if (check(/^\d+$/.test(String(m.positionText).trim()), `Position must be a whole number ≥ 0 (got "${m.positionText}")`, ln('Position'))) {
+      m.position = parseInt(m.positionText, 10);
+      if (m.position >= [...m.input].length && m.position > 0) {
+        diag('info', `Head starts at ${m.position}, beyond the ${[...m.input].length}-character input; the tape is padded with "${m.blank}"`, ln('Position'));
+      }
+    }
+
+    if (hasS) {
+      duplicates(m.states).forEach(s => diag('warn', `State "${s}" is listed more than once in States`, ln('States')));
+      if (m.initial !== undefined) check(S.has(m.initial), `Initial_State "${m.initial}" is not in States ${fmtList(m.states)}`, ln('Initial_State'));
+      m.finals.forEach(f => check(S.has(f), `Final state "${f}" is not in States ${fmtList(m.states)}`, ln('Final_States')));
+    }
+    if ('Final_States' in settings && m.finals.length === 0) {
+      diag('warn', 'Final_States is empty: the machine can only stop by getting stuck', ln('Final_States'));
+    }
+
+    // Rules.
+    check(rules.length > 0, 'No transition rules found', m.headerLine);
+    const snoSeen = new Map();
+    const moves = [m.L, m.R, m.N];
+    rules.forEach(r => {
+      const where = `Rule ${r.sno}`;
+      if (snoSeen.has(r.sno)) diag('warn', `${where}: S.No ${r.sno} is also used on line ${snoSeen.get(r.sno)}`, r.line);
+      else snoSeen.set(r.sno, r.line);
+      if (hasS) {
+        check(S.has(r.state), `${where}: state "${r.state}" is not in States`, r.line);
+        check(S.has(r.next), `${where}: next state "${r.next}" is not in States`, r.line);
+      }
+      if (hasA) {
+        check(A.has(r.read), `${where}: read symbol "${r.read}" is not in Tape_Alphabet`, r.line);
+        check(A.has(r.write), `${where}: write symbol "${r.write}" is not in Tape_Alphabet`, r.line);
+      }
+      check(moves.includes(r.move), `${where}: move "${r.move}" must be one of ${m.L}, ${m.R}, ${m.N}`, r.line);
+    });
+    // Determinism: at most one rule per (state, read symbol).
+    rebuildMap(m).forEach(({ rule, first }) =>
+      diag('error', `Rule ${rule.sno}: a rule for (${rule.state}, ${rule.read}) already exists (rule ${first.sno}, line ${first.line})`, rule.line));
+
+    // Static analysis – only meaningful when everything above is valid.
+    if (errorCount() === 0) analyse(m, diag);
+
+    const validationErrors = errorCount() - errorsBeforeValidation;
+    const warnCount = diags.filter(d => d.level === 'warn').length;
+    phases.push({ name: 'Validate', detail: `${checks} checks — ${validationErrors} error(s), ${warnCount} warning(s)`, status: validationErrors ? 'error' : 'ok' });
+
+    /* ---- Phase 5: build ------------------------------------------------ */
+    const ok = errorCount() === 0;
+    if (ok) {
+      m.finalSet = new Set(m.finals);
+      phases.push({ name: 'Build transition function δ', detail: `${m.map.size} entries over ${m.states.length} states × ${m.alphabet.length} symbols`, status: 'ok' });
+      phases.push({ name: 'Load tape', detail: `input "${m.input}" with head at ${m.position}, start state ${m.initial}`, status: 'ok' });
+    } else {
+      phases.push({ name: 'Build transition function δ', detail: 'skipped because of errors', status: 'skip' });
+    }
+    return { ok, machine: ok ? m : null, diags, phases };
+  }
+
+  /**
+   * Warnings and notes that do not stop the machine from running but
+   * usually point at a mistake.
+   *   - rules that start in a final state can never fire
+   *   - non-final states without any rule make the machine stop if reached
+   *   - states that cannot be reached from the initial state
+   *   - no final state reachable at all
+   */
+  function analyse(m, diag) {
+    const finals = new Set(m.finals);
+    const outgoing = new Map(m.states.map(s => [s, []]));
+    m.rules.forEach(r => outgoing.get(r.state)?.push(r));
+
+    m.rules.filter(r => finals.has(r.state)).forEach(r =>
+      diag('warn', `Rule ${r.sno} starts in final state ${r.state}; the machine halts on entering ${r.state}, so this rule never fires`, r.line));
+
+    // Breadth-first search over the state graph from the initial state.
+    const seen = new Set([m.initial]);
+    const queue = [m.initial];
+    while (queue.length) {
+      const s = queue.shift();
+      if (finals.has(s)) continue;          // the machine stops here
+      for (const r of outgoing.get(s) || []) if (!seen.has(r.next)) { seen.add(r.next); queue.push(r.next); }
+    }
+    const unreachable = m.states.filter(s => !seen.has(s));
+    if (unreachable.length) diag('info', `Unreachable from ${m.initial}: ${unreachable.join(', ')}`, m.settingLine.States);
+    if (m.finals.length && !m.finals.some(f => seen.has(f))) {
+      diag('warn', `No final state is reachable from ${m.initial}; the machine can never halt normally`, m.settingLine.Final_States);
+    }
+    m.states.filter(s => !finals.has(s) && seen.has(s) && !(outgoing.get(s) || []).length).forEach(s =>
+      diag('info', `State ${s} has no rules; the machine stops (stuck) if it reaches ${s}`, m.settingLine.States));
+  }
+
+  /**
+   * (Re)build the transition map m.map : "state␁symbol" -> rule index.
+   * Called after compiling and after every edit of the rules table.
+   * If two rules share (state, read) the FIRST one wins and the later one
+   * is flagged with rule.dup = true.
+   * @returns {{rule:object, first:object}[]} the duplicates found
+   */
+  function rebuildMap(m) {
+    const map = new Map();
+    const dups = [];
+    m.rules.forEach((r, i) => {
+      const key = r.state + K + r.read;
+      if (map.has(key)) { r.dup = true; dups.push({ rule: r, first: m.rules[map.get(key)] }); }
+      else { r.dup = false; map.set(key, i); }
+    });
+    m.map = map;
+    return dups;
+  }
+
+  /**
+   * Find the rule that applies in `state` reading `sym`.
+   * An exact match wins; otherwise a wildcard rule for the state is used
+   * (same order as Turing.py's execute_to_next_state).
+   * @returns {object|null} the rule, or null when the machine is stuck
+   */
+  function lookup(m, state, sym) {
+    let i = m.map.get(state + K + sym);
+    if (i === undefined && sym !== m.wildcard) i = m.map.get(state + K + m.wildcard);
+    return i === undefined ? null : m.rules[i];
+  }
+
+  /* ------------------------------------------------------------------------
+   * SIMULATOR
+   *
+   * The tape is a Map from integer cell index to symbol. Cells that were
+   * never written read as the blank symbol, so the tape is unbounded in
+   * both directions. `min`/`max` track the part of the tape that has been
+   * used; like Turing.py, the used part grows whenever the head moves
+   * past either end, and its length is reported as the space used.
+   *
+   * Every change (a step, or a manual edit of a cell, the head or the
+   * state) pushes an entry on `hist` that holds just enough to reverse it,
+   * so stepping back is exact and cheap: no full snapshots are stored.
+   * --------------------------------------------------------------------- */
+
+  /** Create a fresh simulation for a compiled machine. */
+  function createSim(m) {
+    const cells = new Map();
+    const input = [...m.input];             // spread splits by character, not UTF-16 unit
+    input.forEach((c, i) => cells.set(i, c));
+    // Pad with blanks up to the head if it starts beyond the input (review fix).
+    const max = Math.max(input.length - 1, m.position, 0);
+    for (let i = 0; i <= max; i++) if (!cells.has(i)) cells.set(i, m.blank);
+    m.rules.forEach(r => { r.hits = 0; });
+    return {
+      cells, min: 0, max,
+      head: m.position,
+      state: m.initial,
+      step: 0,
+      hist: [],
+      last: null,          // the rule applied by the most recent step
+      lastPos: null,       // the cell written by the most recent step
+      // If the initial state is already final the machine halts at step 0
+      // (Turing.py executed one transition before checking – review fix).
+      status: m.finalSet.has(m.initial) ? 'halted' : 'ready'
+    };
+  }
+
+  /** Symbol stored in cell i (blank if the cell was never written). */
+  function read(sim, m, i) {
+    const v = sim.cells.get(i);
+    return v === undefined ? m.blank : v;
+  }
+
+  /** Extend the used range of the tape so that it includes cell i. */
+  function touch(sim, i) { if (i < sim.min) sim.min = i; if (i > sim.max) sim.max = i; }
+
+  /**
+   * Execute ONE transition.
+   * @returns {object} one of
+   *   {done:'halted'}                         – already in a final state
+   *   {done:'stuck', sym}                     – no rule for (state, sym)
+   *   {rule, sym, write, from, at, halted}    – a step was executed
+   */
+  function step(sim, m, cfg) {
+    if (sim.status === 'halted') return { done: 'halted' };
+    const sym = read(sim, m, sim.head);
+    const rule = lookup(m, sim.state, sym);
+    if (!rule) { sim.status = 'stuck'; return { done: 'stuck', sym }; }
+
+    // Optional semantics: a wildcard in the Write column keeps the symbol.
+    const write = (cfg.wildcardWriteKeeps && rule.write === m.wildcard) ? sym : rule.write;
+
+    // Undo record: everything needed to reverse this step exactly.
+    sim.hist.push({
+      t: 'step', head: sim.head, state: sim.state, old: sim.cells.get(sim.head),
+      min: sim.min, max: sim.max, rule, last: sim.last, lastPos: sim.lastPos
+    });
+
+    const from = sim.state, at = sim.head;
+    sim.cells.set(sim.head, write);         // 1. write
+    sim.state = rule.next;                  // 2. change state
+    if (rule.move === m.R) sim.head++;      // 3. move the head
+    else if (rule.move === m.L) sim.head--;
+    touch(sim, sim.head);                   // grow the used tape if needed
+    sim.step++;
+    rule.hits++;
+    sim.last = rule;
+    sim.lastPos = at;
+    sim.status = m.finalSet.has(sim.state) ? 'halted' : 'ready';
+    return { rule, sym, write, from, at, halted: sim.status === 'halted' };
+  }
+
+  /**
+   * Reverse the most recent history entry (a step or a manual edit).
+   * @returns {object|null} the entry that was undone, or null if none
+   */
+  function undo(sim, m) {
+    const e = sim.hist.pop();
+    if (!e) return null;
+    switch (e.t) {
+      case 'step':
+        if (e.old === undefined) sim.cells.delete(e.head); else sim.cells.set(e.head, e.old);
+        sim.head = e.head; sim.state = e.state; sim.min = e.min; sim.max = e.max;
+        sim.step--; e.rule.hits--; sim.last = e.last; sim.lastPos = e.lastPos;
+        break;
+      case 'cell':
+        if (e.old === undefined) sim.cells.delete(e.i); else sim.cells.set(e.i, e.old);
+        sim.min = e.min; sim.max = e.max;
+        break;
+      case 'head':
+        sim.head = e.old; sim.min = e.min; sim.max = e.max;
+        break;
+      case 'state':
+        sim.state = e.old;
+        break;
+    }
+    sim.status = m.finalSet.has(sim.state) ? 'halted' : 'ready';
+    return e;
+  }
+
+  /** Manually write `sym` into cell i (undoable). */
+  function editCell(sim, i, sym) {
+    sim.hist.push({ t: 'cell', i, old: sim.cells.get(i), min: sim.min, max: sim.max });
+    sim.cells.set(i, sym);
+    touch(sim, i);
+  }
+
+  /** Manually move the head to cell i (undoable). */
+  function moveHead(sim, i) {
+    sim.hist.push({ t: 'head', old: sim.head, min: sim.min, max: sim.max });
+    sim.head = i;
+    touch(sim, i);
+  }
+
+  /** Manually change the current state (undoable). */
+  function setState(sim, m, s) {
+    sim.hist.push({ t: 'state', old: sim.state });
+    sim.state = s;
+    sim.status = m.finalSet.has(s) ? 'halted' : 'ready';
+  }
+
+  /** The used part of the tape as a string (the "output" of the machine). */
+  function tapeString(sim, m) {
+    let s = '';
+    for (let i = sim.min; i <= sim.max; i++) s += read(sim, m, i);
+    return s;
+  }
+
+  /**
+   * A short view of the tape around the head for the log, with the head
+   * cell in brackets, e.g.  "xx0[c]000#". Long tapes are cut with "…".
+   */
+  function snippet(sim, m, radius = 24) {
+    const lo = Math.max(sim.min, sim.head - radius), hi = Math.min(sim.max, sim.head + radius);
+    let s = lo > sim.min ? '…' : '';
+    for (let i = lo; i <= hi; i++) s += i === sim.head ? `[${read(sim, m, i)}]` : read(sim, m, i);
+    return s + (hi < sim.max ? '…' : '');
+  }
+
+  return {
+    CONFIG_DEFAULTS, SIMPLE_KEYS, ARRAY_KEYS, REQUIRED_KEYS,
+    classify, compile, rebuildMap, lookup,
+    createSim, read, step, undo, editCell, moveHead, setState, tapeString, snippet
+  };
+})();
+</script>
+
+<!-- ==========================================================================
+     EXAMPLES – the .tm files from the repository, embedded verbatim.
+     Each entry: { file: "add.tm", text: "<file contents>" }.
+     ========================================================================== -->
+<script id="examples">
+const EXAMPLES = [
+ {
+  "file": "add.tm",
+  "text": "Name = Add Two Uniary Numbers\nDescription = Adds Two uniary Numbers\n\n#The initial input alphabet\nTape_Alphabet = 0,c,#,x,d,?\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = 00c000\n\n#Initial head position on input string, count starts with 0\nPosition=0\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Set of States\nStates = Q0,Q1,Q2,Q3,Q4,Q5\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q5\n\n#Shift of the head\nLeft_Shift_Symbol = L\nRight_Shift_Symbol = R\nNo_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Q0,0,x,Q1,R\n2,Q1,0,0,Q1,R\n3,Q1,c,c,Q2,R\n4,Q2,0,0,Q2,R\n5,Q2,#,0,Q3,L\n6,Q3,0,0,Q3,L\n7,Q3,c,c,Q4,L\n8,Q4,0,0,Q4,L\n9,Q4,x,x,Q0,R\n10,Q0,c,#,Q5,R"
+ },
+ {
+  "file": "add_with_defaults.tm",
+  "text": "#This turning machine uses defaults\n#Name = Add Two Uniary Numbers\n#Description = Adds Two uniary Numbers\n\n#The initial input alphabet\nTape_Alphabet = 0,c,#,x,d,?\n\n#Blank Symbol of tape\n#Blank_Symbol = #\n\n#Initial input String\nInput = 00c000\n\n#Initial head position on input string, count starts with 0\n#Position=0\n\n#Maps to any symbol\n#Any_Symbol_Wild_Card =?\n\n#Set of States\nStates = Q0,Q1,Q2,Q3,Q4,Q5\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q5\n\n#Shift of the head\n#Left_Shift_Symbol = L\n#Right_Shift_Symbol = R\n#No_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Q0,0,x,Q1,R\n2,Q1,0,0,Q1,R\n3,Q1,c,c,Q2,R\n4,Q2,0,0,Q2,R\n5,Q2,#,0,Q3,L\n6,Q3,0,0,Q3,L\n7,Q3,c,c,Q4,L\n8,Q4,0,0,Q4,L\n9,Q4,x,x,Q0,R\n10,Q0,c,#,Q5,R"
+ },
+ {
+  "file": "subtract.tm",
+  "text": "Name = Subtracts two Unirary Numbers\nDescription = Subtracts two uniary numbers.\n\n#The initial input alphabet\nTape_Alphabet = 0,c,#,x,?\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = #00000c000000000000#\n\n#Initial head position on input string, count starts with 0\nPosition=1\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n\n#Set of States\nStates = Q0,Q1,Q2,Q3,Q4,Q5,Q6\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q6\n\nLeft_Shift_Symbol = Left\nRight_Shift_Symbol = Right\nNo_Shift_Symbol = No_Shift\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Q0,0,x,Q1,Right\n2,Q1,0,0,Q1,Right\n3,Q1,c,c,Q2,Right\n4,Q2,x,x,Q2,Right\n5,Q2,0,x,Q3,Left\n6,Q3,x,x,Q3,Left\n7,Q3,c,c,Q4,Left\n8,Q4,0,0,Q4,Left\n9,Q4,x,x,Q0,Right\n10,Q0,c,c,Q5,Right\n11,Q5,x,#,Q5,Right\n12,Q5,0,0,Q6,Left"
+ },
+ {
+  "file": "flip_bits.tm",
+  "text": "Name = Flips the bits of the input string\nDescription = Flips 0 to 1 and 1 to in an input string until it reaches the end of the string.\n\n#The initial input alphabet\nTape_Alphabet = 0,1,#,?\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = 000111#\n\n#Initial head position on input string, count starts with 0\nPosition=0\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Set of States\nStates = Q0,Q1\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q1\n\n#Shift of the head\nLeft_Shift_Symbol = Left\nRight_Shift_Symbol = Right\nNo_Shift_Symbol = No_Shift\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Q0,0,1,Q0,Right\n2,Q0,1,0,Q0,Right\n3,Q0,#,#,Q1,No_Shift"
+ },
+ {
+  "file": "alternate_0_1.tm",
+  "text": "Name = Alternately fills 0 and 1 in a string\nDescription = Alternately fills 0 and 1 in a string\n\n#The initial input alphabet\nTape_Alphabet = 0,1,#,?,t\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = #########t\n\n#Initial head position on input string, count starts with 0\nPosition=0\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Set of States\nStates = Q0,Q1,Q2\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q2\n\n#Shift of the head\nLeft_Shift_Symbol = L\nRight_Shift_Symbol = R\nNo_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Q0,?,0,Q1,R\n2,Q1,?,1,Q0,R\n3,Q0,t,t,Q2,R\n4,Q1,t,t,Q2,N"
+ },
+ {
+  "file": "reverse_string.tm",
+  "text": "Name = Reverses a string\nDescription = Reverses a string\n\n#The initial input alphabet\nTape_Alphabet = a,b,#,?,x\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = #aabb#\n\n#Initial head position on input string, count starts with 0\nPosition=1\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Set of States\nStates = Q0,Q1,Q2,Q3,Q4,Q5,Q6,Q7\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q7\n\n#Shift of the head\nLeft_Shift_Symbol = L\nRight_Shift_Symbol = R\nNo_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1, Q0,a,a,Q0,R\n2, Q0,b,b,Q0,R\n3, Q0,#,#,Q1,L\n3, Q1,x,x,Q1,L\n4, Q1,a,x,Q2,R\n5, Q1,b,x,Q3,R\n6, Q1,#,#,Q5,R\n7, Q2,a,a,Q2,R\n8, Q2,b,b,Q2,R\n9, Q2,x,x,Q2,R\n10,Q2,#,a,Q4,L\n11,Q3,a,a,Q3,R\n12,Q3,b,b,Q3,R\n13,Q3,x,x,Q3,R\n14,Q3,#,b,Q4,L\n15,Q4,a,a,Q4,L\n16,Q4,b,b,Q4,L\n17,Q4,x,x,Q1,L\n18,Q5,x,#,Q5,R\n19,Q5,b,b,Q6,N\n20,Q5,a,a,Q6,N\n21,Q6,a,a,Q6,R\n22,Q6,b,b,Q6,R\n23,Q6,#,#,Q7,N"
+ },
+ {
+  "file": "halt_on_finding_first_a.tm",
+  "text": "Name = Halts after encountering first a or end of tape. \nDescription = Halts the after finding first a or end of tape. If a is found state is Found_a if not found it is Not_Found_a\n\n#The initial input alphabet\nTape_Alphabet = a,b,c,d,e,#,?\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = bcddddbbae\n\n#Initial head position on input string, count starts with 0\nPosition=0\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Set of States\nStates = Start,Found_a,Not_Found_a\n\n#Initial State\nInitial_State = Start\n\n#Set of accepted final states after which machine halts\nFinal_States = Found_a,Not_Found_a\n\n#Shift of the head\nLeft_Shift_Symbol = L\nRight_Shift_Symbol = R\nNo_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Start,a,a,Found_a,R\n2,Start,b,b,Start,R\n3,Start,c,c,Start,R\n4,Start,d,d,Start,R\n5,Start,e,e,Start,R\n6,Start,#,#,Not_Found_a,R\n"
+ },
+ {
+  "file": "one_step_halt.tm",
+  "text": "Name = Halts after First Input\nDescription = Halts the turing machine after first run. It showcases the any charecter match feature\n\n#The initial input alphabet\nTape_Alphabet = #,?,1,2,3,4,5,6,7,c\n\n#Blank Symbol of tape\nBlank_Symbol = #\n\n#Initial input String\nInput = #1234567\n\n#Initial head position on input string, count starts with 0\nPosition=3\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Set of States\nStates = Q0,Q1\n\n#Initial State\nInitial_State = Q0\n\n#Set of accepted final states after which machine halts\nFinal_States = Q1\n\n#Shift of the head\nLeft_Shift_Symbol = L\nRight_Shift_Symbol = R\nNo_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,Q0,?,c,Q1,R"
+ },
+ {
+  "file": "three_state_busy_beaver.tm",
+  "text": "Name = Three State busy beaver machine.\nDescription = Implementation of a 3 state busy beaver machine.\n\n#The initial input alphabet\nTape_Alphabet = 0,1,?\n\n#Blank Symbol of tape\nBlank_Symbol = 0\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Initial input String\nInput = 0000000000000000000\n\n#Initial head position on input string, count starts with 0\nPosition=6\n\n#Set of States\nStates = A,B,C,H\n\n#Initial State\nInitial_State = A\n\n#Set of accepted final states after which machine halts\nFinal_States = H\n\n#Shift of the head\nLeft_Shift_Symbol = Left\nRight_Shift_Symbol = Right\nNo_Shift_Symbol = No_Shift\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,A,0,1,B,Right\n2,B,0,0,C,Right\n3,C,0,1,C,Left\n4,A,1,1,H,Right\n5,B,1,1,B,Right\n6,C,1,1,A,Left"
+ },
+ {
+  "file": "four_state_busy_beaver.tm",
+  "text": "Name = Four State busy beaver machine.\nDescription = Implementation of a 4 state busy beaver machine.\n\n#The initial input alphabet\nTape_Alphabet = 0,1,?\n\n#Blank Symbol of tape\nBlank_Symbol = 0\n\n#Maps to any symbol\nAny_Symbol_Wild_Card =?\n\n#Initial input String\nInput = 0\n\n#Initial head position on input string, count starts with 0\nPosition=0\n\n#Set of States\nStates = A,B,C,D,H\n\n#Initial State\nInitial_State = A\n\n#Set of accepted final states after which machine halts\nFinal_States = H\n\n#Shift of the head\nLeft_Shift_Symbol = L\nRight_Shift_Symbol = R\nNo_Shift_Symbol = N\n\n#State Transition Table\nS.No,   Current_State,\tInput_Alphabet,\t\tOutput_Alphabet,\t\tNew_State,\tLeft_Right_No_Sift\n1,A,0,1,B,R\n2,B,0,1,A,L\n3,C,0,1,H,R\n4,D,0,1,D,R\n5,A,1,1,B,L\n6,B,1,0,C,L\n7,C,1,1,D,L\n#Rule 8 corrected to move Right (the original L never halts)\n8,D,1,0,A,R"
+ }
+];
+</script>
+
+<!-- ==========================================================================
+     USER INTERFACE
+     --------------------------------------------------------------------------
+     Organised in sections:
+       A. helpers (DOM shortcuts, escaping, icons, toast)
+       B. configuration (load / save / form on the Config tab)
+       C. application state
+       D. log
+       E. editor (gutter, line jumping, dirty tracking, file open/save)
+       F. compile
+       G. execution (step, back, run loop, goto, reset)
+       H. tape view and cell editing
+       I. machine summary and rules table (with on-the-fly editing)
+       J. status strip and rendering scheduler
+       K. examples tab
+       L. tabs, theme, keyboard shortcuts, start-up
+     ========================================================================== -->
+<script id="ui">
+'use strict';
+
+/* ==========================================================================
+   A. HELPERS
+   ========================================================================== */
+
+/** querySelector shortcut. */
+const $ = (sel, root = document) => root.querySelector(sel);
+/** querySelectorAll shortcut returning a real array. */
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+/** Escape a string for safe insertion into innerHTML (machine files are user input). */
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/** Inline SVG icons used by buttons (stroke/fill use currentColor). */
+const ICONS = {
+  compile: '<path d="M4 7h16M4 12h9M4 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 16.5l2.5 2.5L21 14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  reset: '<path d="M4 12a8 8 0 1 0 2.4-5.7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M4 4v5h5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  rewind: '<path d="M11 5L3 12l8 7zM20 5l-8 7 8 7z" fill="currentColor"/>',
+  back: '<path d="M18 5L9 12l9 7z" fill="currentColor"/><rect x="5" y="5" width="2.6" height="14" rx="1" fill="currentColor"/>',
+  step: '<path d="M6 5l9 7-9 7z" fill="currentColor"/><rect x="16.4" y="5" width="2.6" height="14" rx="1" fill="currentColor"/>',
+  play: '<path d="M7 4.5l13 7.5-13 7.5z" fill="currentColor"/>',
+  pause: '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>',
+  ffwd: '<path d="M4 5l8 7-8 7zM12 5l8 7-8 7z" fill="currentColor"/>',
+  plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  upload: '<path d="M12 16V5M7 10l5-5 5 5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+};
+/** Build an <svg> string for an icon name. */
+const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+
+/**
+ * Replace "ICON:name" placeholders in button labels with real SVG icons.
+ * This keeps the HTML markup above short and readable.
+ */
+function hydrateIcons() {
+  $$('button').forEach(b => {
+    if (b.innerHTML.includes('ICON:')) b.innerHTML = b.innerHTML.replace(/ICON:(\w+)/g, (_, n) => icon(n));
+  });
+}
+
+/** Show a short message at the bottom of the screen for 2.2 seconds. */
+let toastTimer = null;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/**
+ * localStorage wrappers. Storage can be unavailable (private windows,
+ * file:// in some browsers, blocked site data), so every access is
+ * wrapped in try/catch and the app works without it.
+ */
+const store = {
+  get(key, fallback = null) { try { const v = localStorage.getItem(key); return v === null ? fallback : v; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch { /* ignore */ } }
+};
+
+/** Trigger a download of `text` as a file called `name`. */
+function download(name, text) {
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain' }));
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ==========================================================================
+   B. CONFIGURATION
+   ========================================================================== */
+
+/** Run speeds offered by the slider: label and delay between steps (ms). 0 = as fast as possible. */
+const SPEEDS = [
+  { label: '1/s', delay: 1000 }, { label: '2/s', delay: 500 }, { label: '4/s', delay: 250 },
+  { label: '8/s', delay: 120 }, { label: '20/s', delay: 50 }, { label: '100/s', delay: 10 },
+  { label: 'Max', delay: 0 }
+];
+
+/** Load the saved configuration, falling back to defaults for anything missing. */
+function loadConfig() {
+  const base = structuredClone(TM.CONFIG_DEFAULTS);
+  try {
+    const saved = JSON.parse(store.get('tm.config', '{}'));
+    Object.assign(base.defaults, saved.defaults || {});
+    for (const k of Object.keys(base)) if (k !== 'defaults' && k in saved) base[k] = saved[k];
+  } catch { /* corrupt or missing: use defaults */ }
+  return base;
+}
+const saveConfig = () => store.set('tm.config', JSON.stringify(cfg));
+
+/** The live configuration object, shared with the engine on every call. */
+let cfg = loadConfig();
+
+/**
+ * Description of the Config tab form. Each field has:
+ *   path      – where the value lives in `cfg` ("defaults.Name" or "maxSteps")
+ *   type      – text | number | checkbox | speed
+ *   compile   – true if the setting affects compilation (shows the
+ *               "Recompile to apply" banner when changed)
+ */
+const CONFIG_FIELDS = [
+  {
+    title: 'Machine defaults',
+    note: 'Used when a machine file leaves a key out. These match the defaults in Turing.py.',
+    fields: [
+      { path: 'defaults.Name', label: 'Name', type: 'text', compile: true },
+      { path: 'defaults.Description', label: 'Description', type: 'text', compile: true },
+      { path: 'defaults.Blank_Symbol', label: 'Blank symbol', type: 'text', compile: true },
+      { path: 'defaults.Any_Symbol_Wild_Card', label: 'Wildcard ("any symbol")', type: 'text', compile: true },
+      { path: 'defaults.Position', label: 'Initial head position', type: 'text', compile: true },
+      { path: 'defaults.Input', label: 'Input (when omitted)', type: 'text', compile: true },
+      { path: 'defaults.Left_Shift_Symbol', label: 'Left shift symbol', type: 'text', compile: true },
+      { path: 'defaults.Right_Shift_Symbol', label: 'Right shift symbol', type: 'text', compile: true },
+      { path: 'defaults.No_Shift_Symbol', label: 'No shift symbol', type: 'text', compile: true }
+    ]
+  },
+  {
+    title: 'Execution',
+    note: 'How Run behaves and what is written to the log.',
+    fields: [
+      { path: 'speed', label: 'Default run speed', type: 'speed' },
+      { path: 'maxSteps', label: 'Safety limit (steps per run)', type: 'number', min: 1,
+        help: 'A single Run pauses after this many steps, so a machine that never halts cannot freeze the page. Press Run again to continue.' },
+      { path: 'logEachStep', label: 'Log every step', type: 'checkbox',
+        help: 'Turn off for very long runs; compile, edits and the final summary are always logged.' },
+      { path: 'logTape', label: 'Include tape snapshot in step lines', type: 'checkbox' },
+      { path: 'tapePadding', label: 'Blank cells shown beyond the used tape', type: 'number', min: 0 }
+    ]
+  },
+  {
+    title: 'Semantics',
+    note: 'Fine points where you may prefer a different behaviour from Turing.py.',
+    fields: [
+      { path: 'requireWildcardInAlphabet', label: 'Wildcard must be in Tape_Alphabet', type: 'checkbox', compile: true,
+        help: 'On = Turing.py behaviour (a compile error if it is missing).' },
+      { path: 'wildcardWriteKeeps', label: 'Wildcard in the Write column keeps the symbol', type: 'checkbox',
+        help: 'Off = Turing.py behaviour: the wildcard character itself is written to the tape.' }
+    ]
+  },
+  {
+    title: 'Editor',
+    fields: [
+      { path: 'syncTableToText', label: 'Write rule-table edits back into the editor', type: 'checkbox',
+        help: 'Keeps the text and the running machine identical, so Save .tm always contains your latest rules.' },
+      { path: 'autoCompile', label: 'Compile automatically when a machine is loaded', type: 'checkbox' },
+      { path: 'restoreLast', label: 'Reopen the last machine when the page loads', type: 'checkbox' }
+    ]
+  }
+];
+
+/** Read a dotted path ("defaults.Name") from cfg. */
+const cfgGet = path => path.split('.').reduce((o, k) => o[k], cfg);
+/** Write a dotted path in cfg. */
+function cfgSet(path, value) {
+  const keys = path.split('.');
+  const last = keys.pop();
+  keys.reduce((o, k) => o[k], cfg)[last] = value;
+}
+
+/** Build the Config tab form from CONFIG_FIELDS and wire up change handlers. */
+function renderConfig() {
+  const grid = $('#cfgGrid');
+  grid.innerHTML = CONFIG_FIELDS.map(sec => `
+    <div class="card"><div class="card-h"><h2>${esc(sec.title)}</h2></div><div class="card-b">
+      ${sec.note ? `<p class="note">${esc(sec.note)}</p>` : ''}
+      ${sec.fields.map(f => {
+        const id = 'cfg-' + f.path.replace('.', '-');
+        const v = cfgGet(f.path);
+        let input;
+        if (f.type === 'checkbox') input = `<input type="checkbox" id="${id}" ${v ? 'checked' : ''}>`;
+        else if (f.type === 'speed') input = `<span class="speed"><input type="range" id="${id}" min="0" max="${SPEEDS.length - 1}" value="${v}"><output>${SPEEDS[v].label}</output></span>`;
+        else input = `<input type="${f.type}" id="${id}" value="${esc(v)}" ${f.min !== undefined ? `min="${f.min}"` : ''}>`;
+        return `<div class="field"><label for="${id}">${esc(f.label)}</label>${input}${f.help ? `<div class="help">${esc(f.help)}</div>` : ''}</div>`;
+      }).join('')}
+    </div></div>`).join('');
+
+  // One handler per field: coerce the value, store it, react.
+  CONFIG_FIELDS.flatMap(s => s.fields).forEach(f => {
+    const input = $('#cfg-' + f.path.replace('.', '-'));
+    input.addEventListener(f.type === 'text' || f.type === 'number' ? 'change' : 'input', () => {
+      let v;
+      if (f.type === 'checkbox') v = input.checked;
+      else if (f.type === 'number') v = Math.max(f.min ?? 0, parseInt(input.value, 10) || 0);
+      else if (f.type === 'speed') { v = +input.value; input.nextElementSibling.textContent = SPEEDS[v].label; setSpeed(v); }
+      else v = input.value.trim();
+      cfgSet(f.path, v);
+      saveConfig();
+      if (f.compile) $('#cfgBanner').hidden = false;
+      if (f.path === 'tapePadding') scheduleRender();
+    });
+  });
+}
+
+/* ==========================================================================
+   C. APPLICATION STATE
+   ========================================================================== */
+
+let M = null;              // the compiled machine (null if not compiled / errors)
+let sim = null;            // the running simulation of M
+let compiledText = null;   // the editor text that M was compiled from
+let lastCompile = null;    // the full compile result (phases + diagnostics)
+let running = false;       // true while the Run loop is active
+let runTimer = null;       // timer handle of the Run loop
+let runStartStep = 0;      // step number when the current Run started (for the safety limit)
+let runFirst = true;       // true for the first step of a Run (breakpoints don't fire on it)
+let selCell = null;        // index of the tape cell open in the edit popover
+let activeTab = 'run';
+
+/* ==========================================================================
+   D. LOG
+   --------------------------------------------------------------------------
+   Every event is appended to `logs` (the complete record, used for
+   Download). The visible panel shows the most recent LOG_DOM_MAX entries
+   that match the current filter; new entries are appended in batches
+   once per animation frame so long fast runs stay smooth.
+   ========================================================================== */
+
+const LOG_MAX = 300000;     // entries kept in memory before the oldest are dropped
+const LOG_DOM_MAX = 2000;   // entries shown in the panel at once
+let logs = [];              // {n, time, kind, text, line}
+let logSeq = 0;             // running sequence number
+let logPending = [];        // entries not yet added to the panel
+let logFilter = 'all';
+
+/** Which log kinds belong to which filter button. */
+const LOG_FILTERS = {
+  all: () => true,
+  compile: e => e.kind === 'compile',
+  steps: e => e.kind === 'step' || e.kind === 'undo',
+  edits: e => e.kind === 'edit',
+  run: e => e.kind === 'run' || e.kind === 'halt',
+  issues: e => e.kind === 'warn' || e.kind === 'error'
+};
+
+/**
+ * Append an entry to the log.
+ * @param {string} kind  compile | step | undo | edit | run | halt | info | warn | error
+ * @param {string} text  the message (may contain newlines)
+ * @param {number} [line] source line the entry refers to (makes it clickable)
+ */
+function log(kind, text, line = null) {
+  const e = { n: ++logSeq, time: new Date(), kind, text, line };
+  logs.push(e);
+  if (logs.length > LOG_MAX) {
+    logs.splice(0, 50000);
+    logs.unshift({ n: 0, time: new Date(), kind: 'info', text: '(older log entries were dropped to save memory)', line: null });
+  }
+  logPending.push(e);
+  scheduleRender();
+}
+
+/** HH:MM:SS for a Date. */
+const hhmmss = d => d.toTimeString().slice(0, 8);
+
+/** Build the DOM node for one log entry. */
+function logNode(e) {
+  const div = document.createElement('div');
+  div.className = 'e';
+  if (e.line) { div.dataset.line = e.line; div.title = `Go to line ${e.line}`; }
+  div.innerHTML = `<span class="t">${hhmmss(e.time)}</span><span class="k ${e.kind}">${e.kind.toUpperCase()}</span><span class="x">${esc(e.text)}</span>`;
+  return div;
+}
+
+/** Add pending entries to the panel (called from the render loop). */
+function flushLog() {
+  const box = $('#log');
+  const match = LOG_FILTERS[logFilter];
+  let items = logPending.filter(match);
+  logPending = [];
+  if (items.length) {
+    // If a burst is bigger than what we show, start from a clean panel.
+    if (items.length >= LOG_DOM_MAX) { box.textContent = ''; items = items.slice(-LOG_DOM_MAX); }
+    const frag = document.createDocumentFragment();
+    items.forEach(e => frag.appendChild(logNode(e)));
+    box.appendChild(frag);
+    while (box.childElementCount > LOG_DOM_MAX) box.firstElementChild.remove();
+    if ($('#follow').checked) box.scrollTop = box.scrollHeight;
+  }
+  $('#logCount').textContent = `${logs.length.toLocaleString()} entries`;
+}
+
+/** Re-render the whole panel (after changing the filter or clearing). */
+function rebuildLog() {
+  $('#log').textContent = '';
+  logPending = logs.slice(-LOG_DOM_MAX * 5);  // enough history to fill the panel for any filter
+  flushLog();
+}
+
+/* ==========================================================================
+   E. EDITOR
+   ========================================================================== */
+
+const editor = $('#editor');
+const gutter = $('#gutter');
+let gutterMarks = new Map();   // line number -> 'err' | 'warn'
+
+/** Rebuild the line-number gutter to match the number of lines in the editor. */
+function updateGutter() {
+  const n = editor.value.split('\n').length;
+  let html = '';
+  for (let i = 1; i <= n; i++) {
+    const mark = gutterMarks.get(i);
+    html += mark ? `<div class="${mark}">${i}</div>` : `<div>${i}</div>`;
+  }
+  gutter.innerHTML = html;
+  syncGutterScroll();
+}
+
+/** Keep the gutter vertically aligned with the textarea's scroll position. */
+function syncGutterScroll() { gutter.style.transform = `translateY(${-editor.scrollTop}px)`; }
+
+/** Mark gutter lines that have errors (red) or warnings (amber). */
+function markGutter(diags) {
+  gutterMarks = new Map();
+  diags.forEach(d => {
+    if (!d.line) return;
+    if (d.level === 'error') gutterMarks.set(d.line, 'err');
+    else if (d.level === 'warn' && !gutterMarks.has(d.line)) gutterMarks.set(d.line, 'warn');
+  });
+  updateGutter();
+}
+
+/** Select line `n` (1-based) in the editor and scroll it into the middle of the view. */
+function gotoLine(n) {
+  switchTab('run');
+  const lines = editor.value.split('\n');
+  n = Math.max(1, Math.min(n, lines.length));
+  let start = 0;
+  for (let i = 0; i < n - 1; i++) start += lines[i].length + 1;
+  editor.focus();
+  editor.setSelectionRange(start, start + lines[n - 1].length);
+  editor.scrollTop = Math.max(0, (n - 1) * 20 - editor.clientHeight / 2);
+  syncGutterScroll();
+}
+
+/** Show the "edited since last compile" badge when the text differs from what was compiled. */
+function updateDirty() {
+  $('#dirty').hidden = compiledText === null || editor.value === compiledText;
+}
+
+/** Replace the editor contents (used by Load, Open, New) and optionally compile. */
+function setSource(text, origin) {
+  stopRun();
+  editor.value = text.replace(/\r\n/g, '\n');
+  editor.scrollTop = 0;
+  gutterMarks = new Map();
+  updateGutter();
+  store.set('tm.source', editor.value);
+  log('info', `Loaded ${origin} into the editor`);
+  if (cfg.autoCompile) doCompile(); else { compiledText = null; updateDirty(); }
+}
+
+/**
+ * Set "Key = value" in the editor text: replace the existing line for
+ * the key, or insert a new line before the rules table if there is none.
+ */
+function setTextKey(key, value) {
+  const lines = editor.value.split('\n');
+  const idx = lines.findIndex(l => TM.classify(l) === 'kv' && l.slice(0, l.indexOf('=')).trim() === key);
+  const newLine = `${key} = ${value}`;
+  if (idx >= 0) lines[idx] = newLine;
+  else {
+    const at = lines.findIndex(l => ['header', 'rule'].includes(TM.classify(l)));
+    lines.splice(at < 0 ? lines.length : at, 0, newLine);
+  }
+  editor.value = lines.join('\n');
+  updateGutter();
+  store.set('tm.source', editor.value);
+}
+
+/** A starting point for a new machine, with the format explained in comments. */
+const NEW_TEMPLATE = `# New Turing machine
+# Lines starting with # are comments. Keys and their defaults are listed on the README tab.
+
+Name = My machine
+Description = Flips every bit, then halts on the first blank
+
+#The set of symbols that may appear on the tape (one character each)
+Tape_Alphabet = 0,1,#,?
+Blank_Symbol = #
+Any_Symbol_Wild_Card = ?
+
+#Initial tape contents and head position (0 = first character)
+Input = 0110
+Position = 0
+
+States = Q0,Q1
+Initial_State = Q0
+Final_States = Q1
+
+Left_Shift_Symbol = L
+Right_Shift_Symbol = R
+No_Shift_Symbol = N
+
+#State Transition Table
+S.No, Current_State, Input_Alphabet, Output_Alphabet, New_State, Left_Right_No_Shift
+1,Q0,0,1,Q0,R
+2,Q0,1,0,Q0,R
+3,Q0,#,#,Q1,N
+`;
+
+/* ==========================================================================
+   F. COMPILE
+   ========================================================================== */
+
+/**
+ * Compile the editor contents, report every phase and diagnostic to the
+ * compiler-output panel and the log, and (if successful) create a fresh
+ * simulation. A failed compile clears the machine so nothing stale runs.
+ */
+function doCompile() {
+  stopRun();
+  closePop();
+  const text = editor.value;
+  log('compile', '──── Compile started ────');
+  const res = TM.compile(text, cfg);
+  res.phases.forEach((p, i) => log('compile', `Phase ${i + 1}/${res.phases.length} ${p.status === 'ok' ? '✓' : p.status === 'skip' ? '–' : '✗'} ${p.name}: ${p.detail}`));
+  res.diags.forEach(d => log(d.level === 'info' ? 'info' : d.level, (d.line ? `line ${d.line}: ` : '') + d.msg, d.line));
+
+  if (res.ok) {
+    M = res.machine;
+    sim = TM.createSim(M);
+    log('compile', `✓ Compiled "${M.name}" — ${M.states.length} states, ${M.alphabet.length} symbols, ${M.rules.length} rules`);
+    if (sim.status === 'halted') log('halt', `Initial state ${M.initial} is a final state — the machine halts at step 0`);
+  } else {
+    M = null; sim = null;
+    const n = res.diags.filter(d => d.level === 'error').length;
+    log('error', `✗ Compilation failed with ${n} error${n === 1 ? '' : 's'}`);
+  }
+  compiledText = text;
+  lastCompile = res;
+  $('#cfgBanner').hidden = true;
+  store.set('tm.source', text);
+  markGutter(res.diags);
+  renderCompileOutput();
+  renderMachine();
+  renderRules();
+  updateDirty();
+  scheduleRender();
+}
+
+/** Fill the compiler-output panel: one row per phase, then each diagnostic (click to jump). */
+function renderCompileOutput() {
+  const out = $('#compileOut');
+  const res = lastCompile;
+  if (!res) return;
+  const ICO = { ok: '✓', error: '✗', skip: '–', warn: '!', info: 'i' };
+  let html = res.phases.map(p =>
+    `<div class="row phase ${p.status}"><span class="ico">${ICO[p.status]}</span><span><b>${esc(p.name)}</b> <span>— ${esc(p.detail)}</span></span></div>`).join('');
+  html += res.diags.map(d =>
+    `<div class="row ${d.level}" ${d.line ? `data-line="${d.line}" title="Go to line ${d.line}"` : ''}><span class="ico">${ICO[d.level]}</span><span class="ln">${d.line ? 'L' + d.line : ''}</span><span>${esc(d.msg)}</span></div>`).join('');
+  out.innerHTML = html;
+  const e = res.diags.filter(d => d.level === 'error').length, w = res.diags.filter(d => d.level === 'warn').length;
+  $('#compileSummary').textContent = res.ok ? `OK · ${w} warning${w === 1 ? '' : 's'}` : `${e} error${e === 1 ? '' : 's'} · ${w} warning${w === 1 ? '' : 's'}`;
+}
+
+/* ==========================================================================
+   G. EXECUTION
+   ========================================================================== */
+
+/**
+ * Execute one step and log it.
+ * @returns {boolean} true if a step was executed, false if the machine had already stopped
+ */
+function stepOnce() {
+  if (!sim) return false;
+  const before = cfg.logEachStep && cfg.logTape ? TM.snippet(sim, M) : '';
+  const r = TM.step(sim, M, cfg);
+  if (r.done === 'halted') return false;
+  if (r.done === 'stuck') {
+    log('halt', `■ Stuck at step ${sim.step}: no rule for (${sim.state}, ${r.sym}) and no wildcard rule — the machine stops`);
+    logSummary('Stopped (no applicable rule)');
+    return false;
+  }
+  if (cfg.logEachStep) {
+    const n = String(sim.step - 1).padStart(4, ' ');
+    log('step', `#${n}  ${r.from}  ${before ? before + '  ' : ''}⇒ rule ${r.rule.sno}: read ${r.sym} → write ${r.write}, move ${r.rule.move}, next ${r.rule.next}`);
+  }
+  if (r.halted) {
+    log('halt', `■ Halted in final state ${sim.state} after ${sim.step} step${sim.step === 1 ? '' : 's'}`);
+    logSummary(`Halted in final state ${sim.state}`);
+  }
+  return true;
+}
+
+/** Log the end-of-run summary, in the same shape as Turing.py's final printout. */
+function logSummary(how) {
+  const out = TM.tapeString(sim, M);
+  log('halt', [
+    `Turing Machine : ${M.name}`,
+    `Description    : ${M.description}`,
+    `Result         : ${how}`,
+    `Execution cycles (time complexity) : ${sim.step}`,
+    `Tape used (space complexity)       : ${sim.max - sim.min + 1}`,
+    `Initial input  : ${M.input}`,
+    `Final output   : ${out}`
+  ].join('\n'));
+}
+
+/** Step button / → key. */
+function stepForward() {
+  if (!sim) return;
+  if (running) stopRun('Paused');
+  closePop();
+  stepOnce();
+  scheduleRender();
+}
+
+/**
+ * Step back: undo the most recent history entry (a step or a manual edit).
+ * @param {boolean} quiet  do not log (used by bulk operations that log once)
+ */
+function stepBack(quiet = false) {
+  if (!sim) return false;
+  if (running) stopRun('Paused');
+  const e = TM.undo(sim, M);
+  if (!e) return false;
+  if (!quiet) {
+    const what = e.t === 'step' ? `step (rule ${e.rule.sno})` : e.t === 'cell' ? `edit of cell ${e.i}` : e.t === 'head' ? 'head move' : 'state change';
+    log('undo', `↶ Undid ${what} — now at step ${sim.step}, state ${sim.state}, head ${sim.head}`);
+  }
+  scheduleRender();
+  return true;
+}
+
+/** Rewind to step 0 (undoing every step; edits made before step 1 are kept). */
+function rewind() {
+  if (!sim) return;
+  stopRun();
+  let n = 0;
+  while (sim.step > 0 && stepBack(true)) n++;
+  log('undo', `⏮ Rewound to step 0 (${n} entries undone)`);
+  scheduleRender();
+}
+
+/** Go to an absolute step number, backwards (undo) or forwards (execute). */
+function gotoStep(target) {
+  if (!sim || !Number.isFinite(target) || target < 0) return;
+  stopRun();
+  if (target < sim.step) {
+    while (sim.step > target && stepBack(true)) { /* keep undoing */ }
+    log('undo', `↶ Went back to step ${sim.step}`);
+  } else {
+    const limit = target - sim.step;
+    let n = 0;
+    while (sim.step < target && n < cfg.maxSteps && stepOnce()) n++;
+    if (sim.step < target && sim.status === 'ready') log('warn', `Stopped at step ${sim.step}: safety limit of ${cfg.maxSteps} steps reached`);
+    else log('run', `⇥ Went forward ${n} of ${limit} step${limit === 1 ? '' : 's'} — now at step ${sim.step}`);
+  }
+  scheduleRender();
+}
+
+/** Discard all progress and start again from the machine's input. Rule edits are kept. */
+function resetSim() {
+  if (!M) return;
+  stopRun();
+  closePop();
+  sim = TM.createSim(M);
+  log('run', `↺ Reset — tape "${M.input}", head ${M.position}, state ${M.initial}`);
+  if (sim.status === 'halted') log('halt', `Initial state ${M.initial} is a final state — the machine halts at step 0`);
+  scheduleRender();
+}
+
+/** Current delay between steps for the selected speed (0 = flat out). */
+const currentDelay = () => SPEEDS[+$('#speed').value].delay;
+
+/**
+ * Start running.
+ * @param {boolean} fast  ignore the speed slider and run flat out ("To end")
+ *
+ * The loop is driven by setTimeout so the page stays responsive:
+ *   - with a delay, one step is executed per tick;
+ *   - flat out, steps are executed in ~14 ms slices, then control returns
+ *     to the browser to paint the tape and handle clicks (e.g. Pause).
+ */
+function startRun(fast = false) {
+  if (!sim || running) return;
+  if (sim.status !== 'ready') { toast(sim.status === 'halted' ? 'The machine has halted — Reset or step back first' : 'The machine is stuck — add a rule, edit the tape or Reset'); return; }
+  closePop();
+  running = true;
+  runStartStep = sim.step;
+  runFirst = true;
+  log('run', `▶ Run from step ${sim.step} at ${fast ? 'full speed' : SPEEDS[+$('#speed').value].label}`);
+  const tick = () => {
+    if (!running) return;
+    const delay = fast ? 0 : currentDelay();
+    if (delay > 0) {
+      if (!runOne()) return stopRun();
+      runTimer = setTimeout(tick, delay);
+    } else {
+      const t0 = performance.now();
+      while (performance.now() - t0 < 14) if (!runOne()) return stopRun();
+      runTimer = setTimeout(tick, 0);
+    }
+    scheduleRender();
+  };
+  tick();
+  scheduleRender();
+}
+
+/**
+ * One step inside the Run loop, with the two checks that can pause it:
+ * the safety limit and breakpoints.
+ * @returns {boolean} false to end the run
+ */
+function runOne() {
+  if (sim.step - runStartStep >= cfg.maxSteps) {
+    log('warn', `⏸ Paused: safety limit of ${cfg.maxSteps.toLocaleString()} steps reached in this run (change it on the Config tab). Press Run to continue.`);
+    return false;
+  }
+  if (!runFirst) {
+    const rule = TM.lookup(M, sim.state, TM.read(sim, M, sim.head));
+    if (rule && rule.bp) { log('run', `● Breakpoint: rule ${rule.sno} is next (step ${sim.step}, state ${sim.state})`); return false; }
+  }
+  runFirst = false;
+  return stepOnce() && sim.status === 'ready';
+}
+
+/** Stop the Run loop; `why` is logged when the user paused it. */
+function stopRun(why) {
+  if (!running) return;
+  running = false;
+  clearTimeout(runTimer);
+  if (why) log('run', `⏸ ${why} at step ${sim ? sim.step : 0}`);
+  scheduleRender();
+}
+
+/* ==========================================================================
+   H. TAPE VIEW AND CELL EDITING
+   ========================================================================== */
+
+let lastTapeKey = '';   // signature of the last rendered window, to avoid needless rebuilds
+
+/**
+ * Draw the tape. The rendered window is the used part of the tape plus
+ * `tapePadding` blank cells on each side; for very long tapes only 300
+ * cells around the head are drawn.
+ */
+function renderTape() {
+  const track = $('#tape');
+  const wrap = $('#tapeWrap');
+  if (!sim) {
+    track.innerHTML = '<div class="empty" style="width:100%">The tape appears here once a machine compiles.</div>';
+    lastTapeKey = '';
+    return;
+  }
+  const pad = cfg.tapePadding;
+  let lo = Math.min(sim.min, sim.head) - pad, hi = Math.max(sim.max, sim.head) + pad;
+  if (hi - lo > 600) { lo = sim.head - 300; hi = sim.head + 300; }
+
+  let html = '';
+  for (let i = lo; i <= hi; i++) {
+    const s = TM.read(sim, M, i);
+    const cls = ['cell'];
+    if (i < sim.min || i > sim.max) cls.push('pad');
+    if (s === M.blank) cls.push('blank');
+    if (i === sim.head) cls.push('head');
+    if (i === selCell) cls.push('sel');
+    if (i === sim.lastPos && !running) cls.push('wrote');
+    html += `<div class="${cls.join(' ')}" data-i="${i}" title="Cell ${i}: click to edit, double-click to move the head here">${esc(s)}<span class="ix">${i}</span></div>`;
+  }
+  // The head marker: a label with the current state and a small triangle.
+  html += `<div class="headmark ${currentDelay() >= 50 && running ? 'anim' : ''}" id="headmark"><span class="lbl">${esc(sim.state)}</span><span class="tri"></span></div>`;
+
+  // Skip rebuilding when nothing visible changed (keeps the flash animation stable).
+  const key = html;
+  if (key !== lastTapeKey) { track.innerHTML = html; lastTapeKey = key; }
+
+  // Position the head marker over the head cell and keep it in view.
+  const headCell = track.querySelector('.cell.head');
+  const mark = $('#headmark');
+  if (headCell && mark) {
+    const x = headCell.offsetLeft + headCell.offsetWidth / 2;
+    mark.style.left = x + 'px';
+    const left = wrap.scrollLeft, w = wrap.clientWidth;
+    if (x < left + 60 || x > left + w - 60) wrap.scrollLeft = x - w / 2;
+  }
+}
+
+/** Open the cell editor popover next to cell `i`. */
+function openPop(i, cellEl) {
+  if (!sim) return;
+  if (running) stopRun('Paused for editing');
+  selCell = i;
+  const pop = $('#pop');
+  const cur = TM.read(sim, M, i);
+  $('#popTitle').textContent = `Cell ${i} — currently "${cur}"`;
+  $('#popSyms').innerHTML = M.alphabet.map(s =>
+    `<button data-s="${esc(s)}" class="${s === cur ? 'on' : ''}" title="${s === M.blank ? 'blank' : s === M.wildcard ? 'wildcard character' : 'write ' + esc(s)}">${esc(s)}</button>`).join('');
+  pop.hidden = false;
+  // Place below the cell, kept inside the viewport.
+  const r = cellEl.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let x = Math.min(Math.max(8, r.left + r.width / 2 - pw / 2), window.innerWidth - pw - 8);
+  let y = r.bottom + 26;
+  if (y + ph > window.innerHeight - 8) y = Math.max(8, r.top - ph - 8);
+  pop.style.left = x + 'px';
+  pop.style.top = y + 'px';
+  scheduleRender();
+}
+
+/** Close the cell editor popover. */
+function closePop() {
+  if (selCell === null) return;
+  selCell = null;
+  $('#pop').hidden = true;
+  scheduleRender();
+}
+
+/** Write a symbol into the selected cell (from the popover or the keyboard). */
+function writeSelected(sym) {
+  if (selCell === null || !sim) return;
+  const old = TM.read(sim, M, selCell);
+  if (old === sym) { closePop(); return; }
+  TM.editCell(sim, selCell, sym);
+  log('edit', `✎ Tape cell ${selCell}: "${old}" → "${sym}"`);
+  recheckStuck();
+  closePop();
+}
+
+/** Move the head to cell `i` by hand. */
+function moveHeadTo(i) {
+  if (!sim || i === sim.head) return;
+  if (running) stopRun('Paused for editing');
+  const old = sim.head;
+  TM.moveHead(sim, i);
+  log('edit', `✎ Head moved by hand: ${old} → ${i}`);
+  recheckStuck();
+  closePop();
+}
+
+/**
+ * After an edit the machine may no longer be stuck (a rule now applies),
+ * so its status is recomputed from scratch.
+ */
+function recheckStuck() {
+  if (!sim) return;
+  if (M.finalSet.has(sim.state)) sim.status = 'halted';
+  else if (sim.status === 'stuck' && TM.lookup(M, sim.state, TM.read(sim, M, sim.head))) sim.status = 'ready';
+  else if (sim.status !== 'stuck') sim.status = 'ready';
+  scheduleRender();
+}
+
+/* ==========================================================================
+   I. MACHINE SUMMARY AND RULES TABLE
+   ========================================================================== */
+
+/** Fill the "Machine" card from the compiled machine (alphabet, states, input, …). */
+function renderMachine() {
+  const box = $('#minfo');
+  if (!M) {
+    box.innerHTML = `<div class="empty">${lastCompile && !lastCompile.ok ? 'Fix the compile errors to see the machine.' : 'No machine compiled yet.'}</div>`;
+    return;
+  }
+  const finals = new Set(M.finals);
+  const symChip = s => `<span class="chip">${esc(s)}${s === M.blank ? ' <small>blank</small>' : ''}${s === M.wildcard ? ' <small>any</small>' : ''}</span>`;
+  const stateChip = s => `<span class="chip" data-state="${esc(s)}">${esc(s)}${s === M.initial ? ' <small>start</small>' : ''}${finals.has(s) ? ' <small>final</small>' : ''}</span>`;
+  const nonFinal = M.states.filter(s => !finals.has(s)).length;
+  box.innerHTML = `
+    <h3>${esc(M.name)}</h3><p>${esc(M.description)}</p>
+    <dl>
+      <dt>Alphabet</dt><dd>${M.alphabet.map(symChip).join('')}</dd>
+      <dt>States</dt><dd id="stateChips">${M.states.map(stateChip).join('')}</dd>
+      <dt>Moves</dt><dd><span class="chip">${esc(M.L)} <small>left</small></span><span class="chip">${esc(M.R)} <small>right</small></span><span class="chip">${esc(M.N)} <small>stay</small></span></dd>
+      <dt>Input</dt><dd><code>${M.input ? esc(M.input) : '(empty)'}</code> &nbsp;head at <code>${M.position}</code></dd>
+      <dt>Rules</dt><dd>${M.rules.length} defined · δ covers ${M.map.size} of ${nonFinal * M.alphabet.length} (state, symbol) pairs</dd>
+    </dl>`;
+}
+
+/** Map from rule object to its <tr>, used for cheap highlight updates. */
+let ruleRows = new Map();
+
+/**
+ * Build the rules table. Every cell is a <select> limited to the declared
+ * states / symbols / moves, so edits can never introduce an undefined name.
+ * Changes apply to the running machine immediately.
+ */
+function renderRules() {
+  const wrap = $('#rulesWrap');
+  ruleRows = new Map();
+  if (!M) { wrap.innerHTML = '<div class="empty">No rules yet.</div>'; $('#rulesCount').textContent = ''; return; }
+
+  const opts = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  const moves = [M.L, M.R, M.N];
+  wrap.innerHTML = `<table class="rules"><thead><tr>
+      <th title="Breakpoint: Run pauses before this rule fires"></th><th>#</th><th>State</th><th>Read</th><th></th><th>Write</th><th>Next</th><th>Move</th><th style="text-align:right">Hits</th><th></th>
+    </tr></thead><tbody>${M.rules.map((r, i) => `
+    <tr data-i="${i}" class="${r.dup ? 'dup' : ''}" title="${r.dup ? 'Duplicate (state, read) – ignored; the earlier rule wins' : ''}">
+      <td><button class="bp ${r.bp ? 'on' : ''}" data-act="bp" title="Toggle breakpoint" aria-label="Toggle breakpoint on rule ${r.sno}"></button></td>
+      <td class="sno">${r.sno}</td>
+      <td><select data-f="state">${opts(M.states, r.state)}</select></td>
+      <td><select data-f="read">${opts(M.alphabet, r.read)}</select></td>
+      <td class="arrow">→</td>
+      <td><select data-f="write">${opts(M.alphabet, r.write)}</select></td>
+      <td><select data-f="next">${opts(M.states, r.next)}</select></td>
+      <td><select data-f="move">${opts(moves, r.move)}</select></td>
+      <td class="hits">${r.hits}</td>
+      <td><button class="del" data-act="del" title="Delete rule" aria-label="Delete rule ${r.sno}">✕</button></td>
+    </tr>`).join('')}</tbody></table>`;
+  $$('tbody tr', wrap).forEach(tr => ruleRows.set(M.rules[+tr.dataset.i], tr));
+  $('#rulesCount').textContent = `${M.rules.length} rule${M.rules.length === 1 ? '' : 's'}`;
+  scheduleRender();
+}
+
+/**
+ * Called after any change to the rules: rebuild the lookup map, report
+ * duplicates, sync the text, refresh the views.
+ */
+function afterRulesChanged(message) {
+  const dups = TM.rebuildMap(M);
+  log('edit', message);
+  dups.forEach(({ rule, first }) => log('warn', `Rule ${rule.sno} duplicates (${rule.state}, ${rule.read}) of rule ${first.sno}; it is ignored until you change it`));
+  if (cfg.syncTableToText) syncRulesToText();
+  recheckStuck();
+  renderRules();
+  renderMachine();
+}
+
+/**
+ * Rewrite the rule rows in the editor text from M.rules.
+ * The first existing rule row is the insertion point; every other rule
+ * row is removed. Comments and settings elsewhere are left untouched.
+ * The compiled text is updated too, so this does not count as "edited".
+ */
+function syncRulesToText() {
+  const lines = editor.value.split('\n');
+  const ruleIdx = new Set();
+  let header = -1;
+  lines.forEach((l, i) => { const k = TM.classify(l); if (k === 'rule') ruleIdx.add(i); else if (k === 'header' && header < 0) header = i; });
+  const rows = M.rules.map(r => [r.sno, r.state, r.read, r.write, r.next, r.move].join(','));
+  let at = ruleIdx.size ? Math.min(...ruleIdx) : header >= 0 ? header + 1 : -1;
+  if (at < 0) { lines.push('', 'S.No, Current_State, Input_Alphabet, Output_Alphabet, New_State, Left_Right_No_Shift'); at = lines.length; }
+  const out = [];
+  lines.forEach((l, i) => { if (i === at) out.push(...rows); if (!ruleIdx.has(i)) out.push(l); });
+  if (at >= lines.length) out.push(...rows);
+  M.rules.forEach((r, j) => { r.line = at + 1 + j; });
+  const wasClean = editor.value === compiledText;
+  editor.value = out.join('\n');
+  if (wasClean) compiledText = editor.value;
+  updateGutter();
+  updateDirty();
+  store.set('tm.source', editor.value);
+}
+
+/** Add a rule: by default for the current (state, symbol), or the first missing pair. */
+function addRule(state, read) {
+  if (!M) return;
+  const finals = new Set(M.finals);
+  state = state || (sim && !finals.has(sim.state) ? sim.state : M.states.find(s => !finals.has(s)) || M.states[0]);
+  if (!read) {
+    const under = sim ? TM.read(sim, M, sim.head) : M.blank;
+    const taken = new Set(M.rules.filter(r => r.state === state).map(r => r.read));
+    read = !taken.has(under) ? under : (M.alphabet.find(a => !taken.has(a)) || M.alphabet[0]);
+  }
+  const sno = M.rules.reduce((mx, r) => Math.max(mx, r.sno), 0) + 1;
+  M.rules.push({ sno, state, read, write: read, next: state, move: M.N, line: null, hits: 0, bp: false, dup: false });
+  afterRulesChanged(`✎ Added rule ${sno}: (${state}, ${read}) → write ${read}, next ${state}, move ${M.N}`);
+  const tr = [...ruleRows.values()].pop();
+  if (tr) { tr.scrollIntoView({ block: 'nearest' }); tr.querySelector('select[data-f="write"]').focus(); }
+}
+
+/** Event delegation for the rules table: select changes, breakpoints, delete. */
+$('#rulesWrap').addEventListener('change', e => {
+  const sel = e.target.closest('select');
+  if (!sel || !M) return;
+  const rule = M.rules[+sel.closest('tr').dataset.i];
+  const field = sel.dataset.f;
+  const old = rule[field];
+  rule[field] = sel.value;
+  afterRulesChanged(`✎ Rule ${rule.sno}: ${field} "${old}" → "${sel.value}"`);
+});
+$('#rulesWrap').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]');
+  if (!btn || !M) return;
+  const i = +btn.closest('tr').dataset.i;
+  const rule = M.rules[i];
+  if (btn.dataset.act === 'bp') {
+    rule.bp = !rule.bp;
+    btn.classList.toggle('on', rule.bp);
+    log('edit', `${rule.bp ? '● Breakpoint set on' : '○ Breakpoint removed from'} rule ${rule.sno}`);
+  } else if (btn.dataset.act === 'del') {
+    M.rules.splice(i, 1);
+    afterRulesChanged(`✎ Deleted rule ${rule.sno}: (${rule.state}, ${rule.read}) → ${rule.write}, ${rule.next}, ${rule.move}`);
+  }
+});
+
+/* ==========================================================================
+   J. STATUS STRIP AND RENDERING
+   --------------------------------------------------------------------------
+   Anything that changes calls scheduleRender(); the actual DOM work
+   happens at most once per animation frame in render(). This keeps fast
+   runs from repainting thousands of times per second.
+   ========================================================================== */
+
+let renderQueued = false;
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; render(); });
+}
+
+let stateSelFor = null;   // the machine the state <select> was built for
+
+/** Repaint everything that depends on the simulation. */
+function render() {
+  flushLog();
+  renderTape();
+
+  // --- status pill ---
+  const pill = $('#pill');
+  const status = running ? 'running' : sim ? sim.status : lastCompile && !lastCompile.ok ? 'error' : 'idle';
+  const label = { running: 'Running', ready: 'Ready', halted: 'Halted', stuck: 'Stuck', error: 'Compile errors', idle: 'Not compiled' }[status];
+  pill.className = 'pill ' + status;
+  pill.textContent = label;
+
+  // --- status strip ---
+  const stateSel = $('#stateSel');
+  if (stateSelFor !== M) {
+    stateSel.innerHTML = M ? M.states.map(s => `<option>${esc(s)}</option>`).join('') : '<option>–</option>';
+    stateSelFor = M;
+  }
+  stateSel.disabled = !sim || running;
+  if (sim) stateSel.value = sim.state;
+  $('#sStep').textContent = sim ? sim.step.toLocaleString() : '–';
+  $('#sHead').textContent = sim ? sim.head : '–';
+  $('#sRead').textContent = sim ? TM.read(sim, M, sim.head) : '–';
+  $('#sUsed').textContent = sim ? (sim.max - sim.min + 1) + ' cells' : '–';
+
+  // --- current state highlighted among the state chips ---
+  $$('#stateChips .chip').forEach(c => c.classList.toggle('cur', !!sim && c.dataset.state === sim.state));
+
+  // --- "next" line: preview of the transition, or the halt summary ---
+  const next = $('#next');
+  next.className = 'next';
+  let nextRule = null;
+  if (!sim) {
+    next.innerHTML = `<span class="k">Next</span>${lastCompile && !lastCompile.ok ? 'Fix the compile errors listed under the editor.' : 'Compile a machine to begin.'}`;
+  } else if (sim.status === 'halted') {
+    next.className = 'next halted';
+    next.innerHTML = `<span class="k">Halted</span>in final state <b>${esc(sim.state)}</b> after ${sim.step.toLocaleString()} steps` + summaryHtml();
+  } else {
+    const sym = TM.read(sim, M, sim.head);
+    nextRule = TM.lookup(M, sim.state, sym);
+    if (nextRule) {
+      next.innerHTML = `<span class="k">Next</span>(${esc(sim.state)}, ${esc(sym)}) → rule ${nextRule.sno}${nextRule.read === M.wildcard && sym !== M.wildcard ? ' (wildcard)' : ''}: write <b>${esc(cfg.wildcardWriteKeeps && nextRule.write === M.wildcard ? sym : nextRule.write)}</b>, move <b>${esc(nextRule.move)}</b>, go to <b>${esc(nextRule.next)}</b>`;
+    } else {
+      next.className = 'next stuck';
+      next.innerHTML = `<span class="k">Stuck</span>No rule for (${esc(sim.state)}, ${esc(sym)}). <button class="btn sm" id="bAddMissing">Add rule for (${esc(sim.state)}, ${esc(sym)})</button>` + (sim.status === 'stuck' ? summaryHtml() : '');
+    }
+  }
+
+  // --- rule rows: highlight the next rule and the last applied, update hit counts ---
+  ruleRows.forEach((tr, rule) => {
+    tr.classList.toggle('next', rule === nextRule && !!sim && sim.status === 'ready');
+    tr.classList.toggle('last', !!sim && rule === sim.last && rule !== nextRule);
+    tr.cells[8].textContent = rule.hits;
+  });
+
+  // --- buttons ---
+  const ready = !!sim && sim.status === 'ready';
+  $('#bReset').disabled = !M;
+  $('#bStart').disabled = !sim || running || sim.step === 0;
+  $('#bBack').disabled = !sim || sim.hist.length === 0;
+  $('#bStep').disabled = !ready;
+  $('#bEnd').disabled = !ready || running;
+  $('#bRun').disabled = !running && !ready;
+  $('#bRun').innerHTML = running ? `${icon('pause')} Pause` : `${icon('play')} Run`;
+  $('#bGoto').disabled = !sim || running;
+  $('#bAddRule').disabled = !M;
+  $('#bSort').disabled = !M;
+  $('#bTapeToInput').disabled = !sim || running;
+}
+
+/** The Turing.py-style result table shown when the machine stops. */
+function summaryHtml() {
+  const out = TM.tapeString(sim, M);
+  return `<div class="summary">
+    <span>Time (steps)</span><span>${sim.step.toLocaleString()}</span>
+    <span>Space (tape used)</span><span>${sim.max - sim.min + 1} cells</span>
+    <span>Initial input</span><span>${esc(M.input) || '(empty)'}</span>
+    <span>Final output</span><span>${esc(out.length > 200 ? out.slice(0, 200) + '…' : out)}</span></div>`;
+}
+
+/* ==========================================================================
+   K. EXAMPLES TAB
+   ========================================================================== */
+
+/** Build one card per embedded example, with Load and View source buttons. */
+function renderExamples() {
+  $('#exGrid').innerHTML = EXAMPLES.map((ex, i) => {
+    // Compile quietly just to read the name, description and size.
+    const res = TM.compile(ex.text, cfg);
+    const m = res.machine;
+    const name = m ? m.name : ex.file;
+    const meta = m
+      ? `<span class="chip">${m.states.length} <small>states</small></span><span class="chip">${m.rules.length} <small>rules</small></span><span class="chip">${m.alphabet.length} <small>symbols</small></span>`
+      : '<span class="chip">does not compile</span>';
+    return `<div class="card ex">
+      <div class="card-b">
+        <div><h3>${esc(name)}</h3><div class="file">${esc(ex.file)}</div></div>
+        <p class="desc">${esc(m ? m.description : '')}</p>
+        <div class="meta">${meta}</div>
+        <div class="file">Input: ${m ? esc(m.input || '(empty)') : '–'}</div>
+        <div class="acts">
+          <button class="btn primary sm" data-load="${i}">Load</button>
+          <button class="btn sm" data-view="${i}">View source</button>
+        </div>
+      </div>
+      <pre hidden id="ex-src-${i}">${esc(ex.text)}</pre>
+    </div>`;
+  }).join('');
+}
+$('#exGrid').addEventListener('click', e => {
+  const load = e.target.closest('[data-load]');
+  const view = e.target.closest('[data-view]');
+  if (load) {
+    const ex = EXAMPLES[+load.dataset.load];
+    switchTab('run');
+    setSource(ex.text, `example ${ex.file}`);
+    toast(`Loaded ${ex.file}`);
+  } else if (view) {
+    const pre = $('#ex-src-' + view.dataset.view);
+    pre.hidden = !pre.hidden;
+    view.textContent = pre.hidden ? 'View source' : 'Hide source';
+  }
+});
+
+/* ==========================================================================
+   L. TABS, THEME, KEYBOARD, WIRING AND START-UP
+   ========================================================================== */
+
+/** Show one tab panel and remember the choice. */
+function switchTab(name) {
+  activeTab = name;
+  $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
+  $$('.panel').forEach(p => { p.hidden = p.id !== 'panel-' + name; });
+  if (name !== 'run') closePop();
+  store.set('tm.tab', name);
+  if (name === 'run') scheduleRender();
+}
+
+/** Theme cycles auto → light → dark → auto; "auto" follows the operating system. */
+function applyTheme(t) {
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', t);
+  $('#themeBtn').title = `Theme: ${t} (click to change)`;
+  store.set('tm.theme', t);
+}
+
+/** Set the speed slider (toolbar) and remember it as the default. */
+function setSpeed(i) {
+  $('#speed').value = i;
+  $('#speedOut').textContent = SPEEDS[i].label;
+}
+
+/** Wire up every button and input. */
+function wire() {
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  $('#themeBtn').addEventListener('click', () => {
+    const order = ['auto', 'light', 'dark'];
+    applyTheme(order[(order.indexOf(store.get('tm.theme', 'auto')) + 1) % 3]);
+  });
+
+  // Toolbar
+  $('#bCompile').addEventListener('click', doCompile);
+  $('#bReset').addEventListener('click', resetSim);
+  $('#bStart').addEventListener('click', rewind);
+  $('#bBack').addEventListener('click', () => stepBack());
+  $('#bStep').addEventListener('click', stepForward);
+  $('#bRun').addEventListener('click', () => running ? stopRun('Paused') : startRun());
+  $('#bEnd').addEventListener('click', () => startRun(true));
+  $('#speed').addEventListener('input', () => {
+    const i = +$('#speed').value;
+    $('#speedOut').textContent = SPEEDS[i].label;
+    cfg.speed = i; saveConfig();
+  });
+  $('#bGoto').addEventListener('click', () => gotoStep(parseInt($('#gotoN').value, 10)));
+  $('#gotoN').addEventListener('keydown', e => { if (e.key === 'Enter') gotoStep(parseInt($('#gotoN').value, 10)); });
+
+  // Status strip: change state by hand, save tape as input.
+  $('#stateSel').addEventListener('change', e => {
+    if (!sim) return;
+    const old = sim.state;
+    TM.setState(sim, M, e.target.value);
+    log('edit', `✎ State changed by hand: ${old} → ${sim.state}`);
+    recheckStuck();
+  });
+  $('#bTapeToInput').addEventListener('click', () => {
+    setTextKey('Input', TM.tapeString(sim, M));
+    setTextKey('Position', String(sim.head - sim.min));
+    updateDirty();
+    log('edit', `✎ Editor updated: Input = ${TM.tapeString(sim, M)}, Position = ${sim.head - sim.min}. Compile to use it.`);
+    toast('Input and Position updated in the editor — Compile to apply');
+  });
+
+  // "Add rule for (state, symbol)" button inside the stuck message.
+  $('#next').addEventListener('click', e => {
+    if (e.target.id === 'bAddMissing' && sim) addRule(sim.state, TM.read(sim, M, sim.head));
+  });
+
+  // Tape: click = edit popover, double-click = move head.
+  $('#tape').addEventListener('click', e => {
+    const c = e.target.closest('.cell');
+    if (c) openPop(+c.dataset.i, c);
+  });
+  $('#tape').addEventListener('dblclick', e => {
+    const c = e.target.closest('.cell');
+    if (c) moveHeadTo(+c.dataset.i);
+  });
+  $('#popSyms').addEventListener('click', e => {
+    const b = e.target.closest('button[data-s]');
+    if (b) writeSelected(b.dataset.s);
+  });
+  $('#popHead').addEventListener('click', () => moveHeadTo(selCell));
+  document.addEventListener('mousedown', e => {
+    if (selCell !== null && !e.target.closest('#pop') && !e.target.closest('.cell')) closePop();
+  });
+  window.addEventListener('resize', closePop);
+
+  // Editor
+  editor.addEventListener('input', () => {
+    updateGutter(); updateDirty();
+    clearTimeout(editor._saveT);
+    editor._saveT = setTimeout(() => store.set('tm.source', editor.value), 400);
+  });
+  editor.addEventListener('scroll', syncGutterScroll);
+  editor.addEventListener('keydown', e => {
+    // Tab inserts a tab character instead of moving focus.
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      const { selectionStart: a, selectionEnd: b } = editor;
+      editor.setRangeText('\t', a, b, 'end');
+      editor.dispatchEvent(new Event('input'));
+    }
+  });
+  $('#bNew').addEventListener('click', () => setSource(NEW_TEMPLATE, 'a new machine template'));
+  $('#bOpen').addEventListener('click', () => $('#fileIn').click());
+  $('#fileIn').addEventListener('change', async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setSource(await f.text(), `file ${f.name}`);
+    e.target.value = '';
+  });
+  $('#bSave').addEventListener('click', () => {
+    const name = (M ? M.name : 'machine').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'machine';
+    download(name + '.tm', editor.value);
+    log('info', `Saved editor contents as ${name}.tm`);
+  });
+
+  // Compiler output and log: click a line reference to jump to it.
+  $('#compileOut').addEventListener('click', e => { const r = e.target.closest('[data-line]'); if (r) gotoLine(+r.dataset.line); });
+  $('#log').addEventListener('click', e => { const r = e.target.closest('[data-line]'); if (r) gotoLine(+r.dataset.line); });
+
+  // Rules toolbar
+  $('#bAddRule').addEventListener('click', () => addRule());
+  $('#bSort').addEventListener('click', () => {
+    const order = new Map(M.states.map((s, i) => [s, i]));
+    const sym = new Map(M.alphabet.map((s, i) => [s, i]));
+    M.rules.sort((a, b) => (order.get(a.state) - order.get(b.state)) || (sym.get(a.read) - sym.get(b.read)));
+    afterRulesChanged('✎ Rules sorted by state, then read symbol');
+  });
+
+  // Log toolbar
+  $('#filters').addEventListener('click', e => {
+    const b = e.target.closest('button[data-f]');
+    if (!b) return;
+    logFilter = b.dataset.f;
+    $$('#filters button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+    rebuildLog();
+  });
+  $('#bLogDl').addEventListener('click', () => {
+    const text = logs.map(e => `${hhmmss(e.time)}  ${e.kind.toUpperCase().padEnd(7)}  ${e.text}`).join('\n');
+    download('turing-log.txt', text);
+  });
+  $('#bLogClear').addEventListener('click', () => { logs = []; logPending = []; $('#log').textContent = ''; scheduleRender(); });
+
+  // Config tab buttons
+  $('#bCfgRecompile').addEventListener('click', () => { doCompile(); switchTab('run'); });
+  $('#bCfgReset').addEventListener('click', () => {
+    cfg = structuredClone(TM.CONFIG_DEFAULTS);
+    saveConfig();
+    renderConfig();
+    setSpeed(cfg.speed);
+    $('#cfgBanner').hidden = false;
+    toast('Settings reset to defaults');
+  });
+
+  // Global keyboard shortcuts.
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); switchTab('run'); doCompile(); return; }
+    if (e.key === 'Escape') { closePop(); return; }
+    if (activeTab !== 'run' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+    // With a cell selected, typing an alphabet symbol writes it.
+    if (selCell !== null && M && e.key.length === 1 && M.alphabet.includes(e.key)) { e.preventDefault(); writeSelected(e.key); return; }
+    const keys = {
+      ArrowRight: stepForward,
+      ArrowLeft: () => stepBack(),
+      ' ': () => (running ? stopRun('Paused') : startRun()),
+      Home: rewind,
+      End: () => startRun(true),
+      r: resetSim
+    };
+    if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
+  });
+}
+
+/** Start-up: icons, settings, examples, last machine, first compile. */
+function init() {
+  hydrateIcons();
+  applyTheme(store.get('tm.theme', 'auto'));
+  setSpeed(cfg.speed);
+  renderConfig();
+  renderExamples();
+  wire();
+  log('info', 'Turing Machine Studio started');
+  const saved = cfg.restoreLast ? store.get('tm.source') : null;
+  if (saved && saved.trim()) setSource(saved, 'your last machine');
+  else setSource(EXAMPLES[0].text, `example ${EXAMPLES[0].file}`);
+  if (!cfg.autoCompile) doCompile();   // always show something on first open
+  switchTab(store.get('tm.tab', 'run'));
+}
+init();
+</script>
+</body>
+</html>
