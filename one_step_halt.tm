@@ -1,6 +1,14 @@
 Name = Halts after First Input
 Description = Halts the turing machine after first run. It showcases the any charecter match feature
 
+#How it works (lines starting with #> are the machine's explanation)
+#> The smallest useful machine: a single rule.
+#>
+#> Whatever symbol is under the head (the wildcard ? matches any symbol), Q0 writes c over it, moves right and halts in Q1.
+#> It shows the wildcard, and a head that starts in the middle of the input (Position = 3).
+#>
+#> Output for #1234567 with the head on the 3 is #12c4567.
+
 #The initial input alphabet
 Tape_Alphabet = #,?,1,2,3,4,5,6,7,c
 
@@ -31,5 +39,5 @@ Right_Shift_Symbol = R
 No_Shift_Symbol = N
 
 #State Transition Table
-S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_No_Sift
-1,Q0,?,c,Q1,R
+S.No,   Current_State,	Input_Alphabet,		Output_Alphabet,		New_State,	Left_Right_No_Sift,	Comment
+1,Q0,?,c,Q1,R, Write c over whatever is here, then halt
