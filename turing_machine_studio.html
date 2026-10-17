@@ -30,7 +30,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Turing Machine Studio</title>
+<!--
+  SEARCH ENGINES AND SHARING
+  Title, description, canonical address, social preview (Open Graph /
+  Twitter) and structured data (JSON-LD) describing the page as a free web
+  application. https://gauravvermaea.github.io/TurningMachine/ and 50 are filled in by the
+  build; the canonical address is where the page is published, so copies
+  (index.html and turing_machine_studio.html) count as one page.
+-->
+<title>Turing Machine Simulator Online – Turing Machine Studio</title>
+<meta name="description" content="Free online Turing machine simulator. Write, compile, step through and debug Turing machines in your browser with a live state diagram, editable tape, step-back, execution log and 50 ready-made examples, from unary addition to busy beavers.">
+<meta name="keywords" content="Turing machine simulator, Turing machine online, Turing machine, state diagram, theory of computation, automata, busy beaver, computer science education">
+<meta name="author" content="Gaurav Verma">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="https://gauravvermaea.github.io/TurningMachine/">
+<meta name="theme-color" content="#1c1b19">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231c1b19'/%3E%3Ctext x='32' y='42' font-family='monospace' font-size='28' font-weight='700' fill='%23fff' text-anchor='middle'%3ETM%3C/text%3E%3C/svg%3E">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Turing Machine Studio">
+<meta property="og:title" content="Turing Machine Studio – a Turing machine simulator in your browser">
+<meta property="og:description" content="Write, run and debug Turing machines with a live state diagram, step-back, an editable tape and 50 examples. Free, no install, one HTML file.">
+<meta property="og:url" content="https://gauravvermaea.github.io/TurningMachine/">
+<meta property="og:image" content="https://gauravvermaea.github.io/TurningMachine/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Turing Machine Studio running a machine: the tape, the head and the state diagram">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Turing Machine Studio – a Turing machine simulator in your browser">
+<meta name="twitter:description" content="Write, run and debug Turing machines with a live state diagram, step-back and 50 examples.">
+<meta name="twitter:image" content="https://gauravvermaea.github.io/TurningMachine/og-image.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@graph": [{"@type": "WebApplication", "@id": "https://gauravvermaea.github.io/TurningMachine/#app", "name": "Turing Machine Studio", "url": "https://gauravvermaea.github.io/TurningMachine/", "description": "Free online Turing machine simulator: write, compile, step through and debug Turing machines in the browser, with a live state diagram, step-back, an editable tape, an execution log and 50 example machines.", "applicationCategory": "EducationalApplication", "applicationSubCategory": "Turing machine simulator", "operatingSystem": "Any (runs in a web browser)", "browserRequirements": "Requires JavaScript", "isAccessibleForFree": true, "inLanguage": "en", "image": "https://gauravvermaea.github.io/TurningMachine/og-image.png", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "author": {"@type": "Person", "name": "Gaurav Verma"}, "educationalUse": "Learning and teaching the theory of computation", "keywords": "Turing machine, simulator, state diagram, automata, computability, busy beaver", "featureList": ["Compile .tm machine files with explained errors", "Step forward and back, run, go to any step", "Edit the tape, head, state and rules while running", "Live state diagram highlighting each transition", "Form-based editor", "Execution log, state trace and a diagram for every step", "Downloadable HTML execution report", "50 example machines including busy beavers"]}, {"@type": "SoftwareSourceCode", "name": "TurningMachine", "codeRepository": "https://github.com/gauravvermaea/TurningMachine", "programmingLanguage": ["Python", "JavaScript", "HTML"], "author": {"@type": "Person", "name": "Gaurav Verma"}, "targetProduct": {"@id": "https://gauravvermaea.github.io/TurningMachine/#app"}}]}</script>
 <style>
 /* ==========================================================================
    1. DESIGN TOKENS
@@ -127,6 +156,17 @@ a{color:var(--accent)}
 .icon-btn:hover{color:var(--ink)}
 
 main{max-width:1600px;margin:0 auto;padding:16px}
+/* Footer: about text and the example list (also what search engines read) */
+.site-foot{max-width:1600px;margin:24px auto 0;padding:20px 16px 32px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.6;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:8px 40px}
+.site-foot h2{font-size:14px;color:var(--ink);margin:0 0 6px}
+.site-foot p{margin:0 0 8px}
+.site-foot a{color:inherit}
+.site-foot .ex-links{columns:2 220px;column-gap:24px;margin:0;padding:0;list-style:none}
+.site-foot .ex-links li{break-inside:avoid;margin:0 0 4px}
+.site-foot .ex-links h3{font-size:12px;color:var(--ink);margin:8px 0 2px;break-after:avoid}
+.site-foot .credit,.site-foot noscript{grid-column:1/-1}
+.site-foot .nojs{padding:10px 12px;border:1px solid var(--line);border-radius:8px;color:var(--ink)}
+@media (max-width:800px){.site-foot{grid-template-columns:1fr}}
 .panel[hidden]{display:none}
 
 /* ==========================================================================
@@ -185,6 +225,9 @@ main{max-width:1600px;margin:0 auto;padding:16px}
   background:var(--surface)}
 .dirty{font-size:12px;color:var(--warn);background:var(--warn-tint);border-radius:6px;
   padding:2px 8px}
+/* "In sync" status shown on Run & Debug and the Editor when the two are kept in sync */
+.sync-chip{font-size:12px;border-radius:6px;padding:2px 8px;white-space:nowrap;color:var(--ok);background:var(--ok-tint)}
+.sync-chip.wait{color:var(--warn);background:var(--warn-tint)}
 
 .split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:16px;align-items:start}
 @media (max-width:1050px){.split{grid-template-columns:minmax(0,1fr)}}
@@ -650,7 +693,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
   <div class="inner">
     <div class="brand">
       <div class="logo" aria-hidden="true">TM</div>
-      <div><h1>Turing Machine Studio</h1><small>Compile, run and debug .tm machines in the browser</small></div>
+      <div><h1>Turing Machine Studio</h1><small>Online Turing machine simulator: write, run and debug machines in your browser</small></div>
     </div>
     <nav class="tabs" role="tablist" aria-label="Sections">
       <button class="tab" role="tab" data-tab="run" aria-selected="true"><span class="n">1</span>Run &amp; Debug</button>
@@ -683,6 +726,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
     <div class="card toolbar" role="toolbar" aria-label="Execution controls">
       <button class="btn primary" id="bCompile" title="Compile the machine in the editor (Ctrl/⌘+Enter)">ICON:compile Compile</button>
       <button class="btn" id="bReset" title="Reset the tape and state to the machine's input (R)">ICON:reset Reset</button>
+      <button class="btn" id="bToEditor" title="Open this machine in the form-based Editor tab to change it field by field">ICON:pen Send to Editor</button>
       <span class="sep"></span>
       <button class="btn" id="bStart" title="Rewind to step 0 (Home)">ICON:rewind</button>
       <button class="btn" id="bBack" title="Step back – undo the last step or edit (←)">ICON:back Back</button>
@@ -694,6 +738,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
       <span class="sep"></span>
       <div class="goto"><input type="number" id="gotoN" min="0" placeholder="step #" aria-label="Step number"><button class="btn" id="bGoto">Go to step</button></div>
       <span style="margin-left:auto"></span>
+      <span class="sync-chip" id="syncRun" hidden></span>
       <span class="dirty" id="dirty" hidden data-tip-level="warn" data-tip-title="Edited since last compile" data-tip="The text in the editor no longer matches the machine that is running. Steps still use the old version. Press Compile (Ctrl/⌘+Enter) to apply your changes; that resets the tape.">Edited since last compile</span>
       <span class="pill idle" id="pill">Not compiled</span>
     </div>
@@ -834,6 +879,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
       <input type="file" id="bbFile" accept=".tm,.txt,text/plain" hidden>
       <button class="btn" id="bbImport" title="Replace the form with the machine currently compiled on Run & Debug">Import from Run &amp; Debug</button>
       <button class="btn" id="bbReset" title="Start again from the prefilled defaults">Reset to defaults</button>
+      <span class="sync-chip" id="syncBb" hidden></span>
       <span class="sep"></span>
       <button class="btn" id="bbDownload">ICON:download Download .tm</button>
       <button class="btn dark" id="bbCompile" title="Check the generated file (Ctrl/⌘+Enter)">ICON:compile Compile</button>
@@ -957,7 +1003,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
 <h2 id="r-tabs">The five tabs</h2>
 <h3>1 · Run &amp; Debug</h3>
 <ul>
-  <li><b>Toolbar</b> – Compile, Reset, Rewind to step 0, Back, Step, Run/Pause, To end (full speed), run speed, and Go to step <i>n</i>. The pill on the right shows the status: <i>Not compiled</i>, <i>Ready</i>, <i>Running</i>, <i>Halted</i>, <i>Stuck</i> or <i>Compile errors</i>.</li>
+  <li><b>Toolbar</b> – Compile, Reset, <b>Send to Editor</b> (opens this machine in the form on the Editor tab, to change it field by field), Rewind to step 0, Back, Step, Run/Pause, To end (full speed), run speed, and Go to step <i>n</i>. The pill on the right shows the status: <i>Not compiled</i>, <i>Ready</i>, <i>Running</i>, <i>Halted</i>, <i>Stuck</i> or <i>Compile errors</i>.</li>
   <li><b>Pinned tape</b> – the toolbar and the tape stay at the top of the window while you scroll down to the diagram, rules, log and trace (on short or narrow screens they scroll normally). <b>📌 Pin tape</b> in the status strip turns this off or on.</li>
   <li><b>Arrange the panels</b> – everything under the tape (State diagram, Machine definition, Machine, Transition rules, Execution log, State trace, Diagram at every step) is a panel you can arrange: <b>drag it by its header bar</b> and drop it where you want it — a blue marker shows where it will land: on the top or bottom half of another panel to go above or below it, on its left or right edge to sit side by side with it (both become half width), or below the last panel to go to the end (the page scrolls while you drag near the edges; <kbd>Esc</kbd> cancels). You can also use <b>↑ ↓</b>; <b>⇔</b> switches between full and half width (two half panels sit side by side); <b>▾</b> or a click on the title collapses it to its header. The <b>Panels</b> bar has <b>Expand all</b>, <b>Collapse all</b> and <b>⟲ Reset view</b>, which restores the default arrangement. The layout is remembered in the browser.</li>
   <li><b>Status strip</b> – current state (a drop-down: change it by hand), step count, head position, the symbol under the head, and how much tape has been used. <b>Save tape → Input</b> writes the current tape and head position back into the editor as <code>Input</code> and <code>Position</code>.</li>
@@ -982,7 +1028,8 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
   <li><b>6 · State diagram</b> – the machine drawn from the form, redrawn as you type. Hover a state or a rule for details.</li>
 </ul>
 <p>Renaming a symbol or state updates every rule that uses it. Removing one leaves a red <i>(removed)</i> in the rules that used it until you pick a replacement.</p>
-<p>The right-hand side shows the generated <code>.tm</code> file, updated as you type, and the compiler output. <b>Regenerate</b> (on the file panel) rebuilds the file from the form and clears old compile marks. The toolbar has <b>Download .tm</b>, <b>Compile</b> (also <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> on this tab), and <b>Compile &amp; load into engine</b>, which puts the machine on Run &amp; Debug ready to run. Compile also warns about anything the original <code>Turing.py</code> cannot read (such as an empty input), so the downloaded file runs in both. <b>Open .tm</b> loads a file from your computer into the form, <b>Load example…</b> fills the form from any of the example machines (so you can change one field by field), and <b>Import from Run &amp; Debug</b> fills it from the machine currently there; <b>Reset to defaults</b> starts over. The form is saved in the browser between visits.</p>
+<p>The right-hand side shows the generated <code>.tm</code> file, updated as you type, and the compiler output. <b>Regenerate</b> (on the file panel) rebuilds the file from the form and clears old compile marks. The toolbar has <b>Download .tm</b>, <b>Compile</b> (also <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> on this tab), and <b>Compile &amp; load into engine</b>, which puts the machine on Run &amp; Debug ready to run. Compile also warns about anything the original <code>Turing.py</code> cannot read (such as an empty input), so the downloaded file runs in both. <b>Open .tm</b> loads a file from your computer into the form, <b>Load example…</b> fills the form from any of the example machines (so you can change one field by field), and <b>Import from Run &amp; Debug</b> fills it from the machine currently there (the same as <b>Send to Editor</b> on Run &amp; Debug); <b>Reset to defaults</b> starts over. The form is saved in the browser between visits.</p>
+<p><b>Keeping the two tabs in sync.</b> Turn on <b>Keep Run &amp; Debug and the Editor in sync</b> on the Config tab and both tabs always hold the same machine; a green <i>⇄ In sync</i> label shows on both. A change on the form is applied to Run &amp; Debug about half a second after you stop typing, as soon as it compiles (the run restarts from step 0). A compile, a rule edit in the Transition rules table or <b>Save tape → Input</b> on Run &amp; Debug updates the form. Typing in the Run &amp; Debug text only syncs when you compile, so a half-typed line never replaces the form. While one side has errors the other keeps the last working machine, and the label turns amber to say so. Turning the option on copies the Run &amp; Debug machine into the form.</p>
 <h3>3 · Config &amp; Defaults</h3>
 <p>Defaults used when a file leaves a key out (identical to Turing.py), run speed, the safety step limit, logging detail, how many frames the Diagram at every step panel draws, two semantic choices for the wildcard, and editor behaviour. Settings are kept in the browser. Settings that change how machines compile show a <i>Recompile now</i> banner.</p>
 <h3>4 · Examples</h3>
@@ -1132,6 +1179,86 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
   </section>
 </main>
 
+<!-- ======================================================================
+     FOOTER: a short plain-text description of the page and the list of
+     examples (filled in by the build), so search engines and readers
+     without JavaScript can see what the page is about. Each example
+     links to its .tm file on GitHub.
+     ====================================================================== -->
+<footer class="site-foot">
+  <noscript><p class="nojs"><b>Turing Machine Studio needs JavaScript</b> to run machines. Turn it on to use the simulator; the description below works without it.</p></noscript>
+  <section>
+    <h2>About Turing Machine Studio</h2>
+    <p>Turing Machine Studio is a free <b>Turing machine simulator</b> that runs entirely in your browser, with nothing to install. A Turing machine is the simplest model of a computer: a tape of symbols, a head that reads and writes one cell at a time, and a table of rules. Alan Turing described it in 1936, and it is still how computer science defines what can be computed.</p>
+    <p>Write a machine as a text file or on a form, compile it, then <b>run it, step forward and back</b>, jump to any step, edit the tape, move the head and change rules while it runs. A <b>live state diagram</b> highlights every transition; the execution log, the state trace and a diagram for every step show exactly what happened. Problems are explained in plain language, and a whole run can be downloaded as an HTML report. It reads and writes the same <code>.tm</code> files as the command-line simulator <code>Turing.py</code>.</p>
+    <p>Useful for learning and teaching the theory of computation, automata and computability, and for exploring famous machines such as the busy beavers.</p>
+  </section>
+  <section>
+    <h2>50 example Turing machines</h2>
+    <h3>Unary arithmetic</h3><ul class="ex-links">
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/add.tm">Add Two Uniary Numbers</a> – Adds Two uniary Numbers</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/subtract.tm">Subtracts two Unirary Numbers</a> – Subtracts two uniary numbers.</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/multiply.tm">Multiply Two Unary Numbers</a> – Multiplies two unary numbers A c B; the product is left on the tape after the inputs are erased</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/divide.tm">Divide Two Unary Numbers</a> – Divides unary A by unary B (B at least 1): the quotient and the remainder are left on the tape</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/square_root.tm">Square Root of a Unary Perfect Square</a> – Finds the square root of a perfect square written in unary</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_compare.tm">Compare Two Unary Numbers</a> – Compares unary A and B and halts in Less, Equal or Greater</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_double.tm">Double a Unary Number</a> – Doubles a unary number: n 0s become 2n 0s</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_halve.tm">Halve a Unary Number</a> – Halves a unary number, rounding down: n 0s become n/2 0s</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_max.tm">Larger of Two Unary Numbers</a> – Leaves the larger of two unary numbers A and B on the tape</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_min.tm">Smaller of Two Unary Numbers</a> – Leaves the smaller of two unary numbers A and B on the tape</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_parity.tm">Even or Odd (Unary)</a> – Decides whether a unary number is even or odd: halts in Even or Odd</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_mod3.tm">Remainder After Dividing by 3 (Unary)</a> – Finds n mod 3 for a unary number: halts in Mod0, Mod1 or Mod2</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_power_of_two.tm">Power of Two (Unary)</a> – Accepts unary numbers that are a power of two (1, 2, 4, 8, 16 ...)</li>
+    </ul>
+    <h3>Binary numbers</h3><ul class="ex-links">
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_increment.tm">Binary Increment</a> – Adds 1 to a binary number</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_decrement.tm">Binary Decrement</a> – Subtracts 1 from a binary number; halts in Underflow if the number was 0</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_add.tm">Add Two Binary Numbers</a> – Adds two binary numbers A+B, leaving the sum where A was</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_times_3.tm">Multiply a Binary Number by 3</a> – Multiplies a binary number by 3 in one pass from right to left</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/twos_complement.tm">Two&#x27;s Complement (Negate a Binary Number)</a> – Negates a binary number in two&#x27;s complement: keep bits up to the last 1, flip the rest</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_xor.tm">Bitwise XOR of Two Binary Numbers</a> – XORs two binary numbers of the same length: A^B leaves A XOR B</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_to_gray.tm">Binary to Gray Code</a> – Converts a binary number to Gray code (each bit XOR the bit before it)</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/trim_leading_zeros.tm">Remove Leading Zeros</a> – Removes the leading zeros of a binary number (keeping a single 0 for zero)</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/unary_to_binary.tm">Unary to Binary</a> – Converts a unary number (I marks) into binary</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_to_unary.tm">Binary to Unary</a> – Converts a binary number into unary (I marks)</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_divisible_by_3.tm">Divisible by 3 (Binary)</a> – Accepts binary numbers divisible by 3, reading the digits once</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_even_ones.tm">Even Number of 1s</a> – Accepts binary strings that contain an even number of 1s (a parity check)</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/collatz.tm">Collatz Sequence (Binary)</a> – Follows the 3n+1 sequence of a binary number until it reaches 1</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/binary_counter.tm">Binary Counter (Runs Forever)</a> – Counts up in binary forever: 0, 1, 10, 11, 100 ...</li>
+    </ul>
+    <h3>Recognising languages</h3><ul class="ex-links">
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/palindrome.tm">Palindrome Checker</a> – Decides whether a string of a&#x27;s and b&#x27;s reads the same backwards</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/balanced_parentheses.tm">Balanced Parentheses</a> – Decides whether every ( has a matching )</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/anbn.tm">Recognise a^n b^n</a> – Decides whether the input is some a&#x27;s followed by the same number of b&#x27;s</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/anb2n.tm">a^n b^2n</a> – Accepts n a&#x27;s followed by exactly twice as many b&#x27;s</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/anbncn.tm">Recognise a^n b^n c^n</a> – Decides whether the input is n a&#x27;s, then n b&#x27;s, then n c&#x27;s</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/string_equal.tm">Two Equal Strings (w c w)</a> – Accepts w c w: two strings of a and b separated by c that are identical</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/ww.tm">A String Followed by Itself (w w)</a> – Accepts w w: a string of a and b that is some string written twice</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/count_a_b.tm">More a&#x27;s or More b&#x27;s</a> – Compares the number of a&#x27;s and b&#x27;s in any order: halts in MoreA, Equal or MoreB</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/contains_aba.tm">Contains aba</a> – Searches a string of a and b for the pattern aba</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/halt_on_finding_first_a.tm">Halts after encountering first a or end of tape.</a> – Halts the after finding first a or end of tape. If a is found state is Found_a if not found it is Not_Found_a</li>
+    </ul>
+    <h3>Working with strings</h3><ul class="ex-links">
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/flip_bits.tm">Flips the bits of the input string</a> – Flips 0 to 1 and 1 to in an input string until it reaches the end of the string.</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/reverse_string.tm">Reverses a string</a> – Reverses a string</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/copy_string.tm">Copy a String</a> – Duplicates a string of a&#x27;s and b&#x27;s: w becomes w s w</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/sort_ab.tm">Sort a&#x27;s Before b&#x27;s</a> – Sorts a string of a&#x27;s and b&#x27;s so all the a&#x27;s come first</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/delete_b.tm">Delete Every b</a> – Deletes every b from a string of a&#x27;s and b&#x27;s, closing the gaps</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/rotate_letters.tm">Rotate Letters (a to b to c to a)</a> – Shifts every letter one step along the cycle a, b, c, like a tiny Caesar cipher</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/alternate_0_1.tm">Alternately fills 0 and 1 in a string</a> – Alternately fills 0 and 1 in a string</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/one_step_halt.tm">Halts after First Input</a> – Halts the turing machine after first run. It showcases the any charecter match feature</li>
+    </ul>
+    <h3>Busy beavers</h3><ul class="ex-links">
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/two_state_busy_beaver.tm">Two State busy beaver machine.</a> – The 2-state busy beaver: writes 4 ones in 6 steps, the most any 2-state machine can</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/three_state_busy_beaver.tm">Three State busy beaver machine.</a> – Implementation of a 3 state busy beaver machine.</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/four_state_busy_beaver.tm">Four State busy beaver machine.</a> – Implementation of a 4 state busy beaver machine.</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/five_state_busy_beaver.tm">Five State busy beaver machine.</a> – The 5-state busy beaver champion: 4098 ones after 47,176,870 steps</li>
+    <li><a href="https://github.com/gauravvermaea/TurningMachine/blob/main/six_state_busy_beaver.tm">Six State busy beaver machine.</a> – The current 6-state busy beaver champion (found by mxdys, 2025). It does halt, but only after an unimaginable number of steps.</li>
+    </ul>
+  </section>
+  <p class="credit">Created by Gaurav Verma · <a href="https://github.com/gauravvermaea/TurningMachine">Source code and .tm files on GitHub</a></p>
+</footer>
+
 <!-- Popover used to edit a single tape cell (opened by clicking a cell). -->
 <div class="pop" id="pop" hidden role="dialog" aria-label="Edit tape cell">
   <h4 id="popTitle">Cell</h4>
@@ -1244,6 +1371,7 @@ const TM = (() => {
     wildcardWriteKeeps: false,     // false = Python behaviour (wildcard char itself is written)
     requireWildcardInAlphabet: true, // true = Python behaviour
     syncTableToText: true,         // rule-table edits are written back into the editor text
+    syncRunEditor: false,          // keep Run & Debug and the Editor tab showing the same machine
     autoCompile: true,             // compile automatically when a machine is loaded
     restoreLast: true              // reopen the last edited machine on page load
   };
@@ -2129,7 +2257,8 @@ const ICONS = {
   ffwd: '<path d="M4 5l8 7-8 7zM12 5l8 7-8 7z" fill="currentColor"/>',
   plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
   download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
-  upload: '<path d="M12 16V5M7 10l5-5 5 5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+  upload: '<path d="M12 16V5M7 10l5-5 5 5M5 20h14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+  pen: '<path d="M4 20h4L19 9l-4-4L4 16z" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round"/><path d="M13 7l4 4" stroke="currentColor" stroke-width="2"/>'
 };
 /** Build an <svg> string for an icon name. */
 const icon = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
@@ -2347,6 +2476,8 @@ const CONFIG_FIELDS = [
   {
     title: 'Editor',
     fields: [
+      { path: 'syncRunEditor', label: 'Keep Run & Debug and the Editor in sync', type: 'checkbox',
+        help: 'Both tabs always show the same machine. A change on the Editor form is applied to Run & Debug as soon as it compiles (the run restarts); a compile, a rule edit or "Save tape → Input" on Run & Debug updates the form. While the form has errors, Run & Debug keeps the last working machine. Turning this on copies the Run & Debug machine into the form.' },
       { path: 'syncTableToText', label: 'Write rule-table edits back into the editor', type: 'checkbox',
         help: 'Keeps the text and the running machine identical, so Save .tm always contains your latest rules.' },
       { path: 'autoCompile', label: 'Compile automatically when a machine is loaded', type: 'checkbox' },
@@ -2399,6 +2530,7 @@ function renderConfig() {
       if (f.compile) $('#cfgBanner').hidden = false;
       if (f.path === 'tapePadding') scheduleRender();
       if (f.path === 'framesMax') { updateFramesAllLabel(); renderFramesPanel(true); }
+      if (f.path === 'syncRunEditor') syncSwitched();
     });
   });
 }
@@ -2653,6 +2785,7 @@ function doCompile() {
   renderRules();
   updateDirty();
   scheduleRender();
+  syncRunToEditor();          // in sync mode the Editor form follows what was compiled here
 }
 
 /** Fill the Run & Debug compiler-output panel from the last compile. */
@@ -3182,10 +3315,11 @@ function afterRulesChanged(message) {
   const dups = TM.rebuildMap(M);
   log('edit', message);
   dups.forEach(({ rule, first }) => log('warn', `Rule ${rule.sno} duplicates (${rule.state}, ${rule.read}) of rule ${first.sno}; it is ignored until you change it`));
-  if (cfg.syncTableToText) syncRulesToText();
+  if (cfg.syncTableToText || cfg.syncRunEditor) syncRulesToText();
   recheckStuck();
   renderRules();
   renderMachine();
+  syncRunToEditor();
 }
 
 /**
@@ -3686,6 +3820,7 @@ function bbChanged(stale = true) {
   renderBbHints();
   bbDecorate();
   renderBbDiagram();
+  scheduleSyncToRun();        // in sync mode, apply the form to Run & Debug shortly after typing stops
 }
 
 /**
@@ -3895,9 +4030,10 @@ function bbLoad() {
  * @param {boolean} ask   confirm before replacing the current form
  * @returns {boolean} true if the form was replaced
  */
-function bbLoadText(text, from, ask = true) {
+function bbLoadText(text, from, ask = true, quiet = false) {
   const res = TM.compile(text, cfg);
   if (!res.ok) {
+    if (quiet) return false;
     const n = res.diags.filter(d => d.level === 'error').length;
     toast(`${from} has ${n} compile error${n === 1 ? '' : 's'} — open it on Run & Debug to see and fix them`);
     return false;
@@ -3920,6 +4056,7 @@ function bbLoadText(text, from, ask = true) {
   renderBuilder();
   $('#bbOut').innerHTML = `<div class="empty">Loaded ${esc(from)}. Press Compile to check it.</div>`;
   $('#bbSummary').textContent = '';
+  if (quiet) return true;                  // sync mode: no message for every update
   log('info', `Editor: loaded ${from} ("${m.name}") into the form`);
   toast(`Loaded "${m.name}" into the Editor`);
   return true;
@@ -5457,12 +5594,117 @@ function initPanels() {
 }
 
 /* ==========================================================================
+   U. RUN & DEBUG ⇄ EDITOR
+   --------------------------------------------------------------------------
+   "Send to Editor" (Run & Debug toolbar) copies the machine in the text
+   editor into the Editor tab's form and shows that tab.
+
+   With "Keep Run & Debug and the Editor in sync" on (Config tab) both
+   tabs always hold the same machine:
+     • Run → Editor: after a successful compile, a rule edit in the table,
+       or "Save tape → Input", the form is rebuilt from the text.
+     • Editor → Run: 600 ms after the form stops changing, the generated
+       file replaces the text on Run & Debug and is compiled (the run
+       restarts). A form that does not compile is not applied: Run & Debug
+       keeps the last working machine and both tabs say so.
+   Typing in the Run & Debug text does not sync until you compile, so a
+   half-typed line never wipes the form.
+
+   Loops are avoided two ways: `syncBusy` is set while one side updates
+   the other, and `bbSyncedText` remembers the file the form last
+   exchanged, so a form rebuilt by Run → Editor is not sent back.
+   ========================================================================== */
+
+let syncBusy = false;        // true while one tab is updating the other
+let bbSyncedText = null;     // generated .tm text of the form at the last exchange
+let syncTimer = 0;
+
+/** Show the sync status on both tabs: 'ok', 'editor' (form has errors), 'run' (text has errors) or 'off'. */
+function setSyncChip(kind) {
+  const text = {
+    ok: '⇄ In sync',
+    editor: '⇄ Editor has errors · Run & Debug keeps the last working machine',
+    run: '⇄ Run & Debug has errors · the Editor keeps the last working machine'
+  }[kind];
+  for (const id of ['#syncRun', '#syncBb']) {
+    const el = $(id);
+    el.hidden = !cfg.syncRunEditor || !text;
+    el.textContent = text || '';
+    el.classList.toggle('wait', kind === 'editor' || kind === 'run');
+    el.title = 'Keep Run & Debug and the Editor in sync is on (Config tab)';
+  }
+}
+
+/** "Send to Editor": put the Run & Debug machine into the form and show the Editor tab. */
+function sendToEditor() {
+  if (bbLoadText(editor.value, 'the machine from Run & Debug', !cfg.syncRunEditor)) {
+    bbSyncedText = generateTm();
+    switchTab('builder');
+  }
+}
+
+/** Run → Editor (sync mode only): rebuild the form from the Run & Debug text. */
+function syncRunToEditor() {
+  if (!cfg.syncRunEditor || syncBusy) return;
+  syncBusy = true;
+  try {
+    const ok = bbLoadText(editor.value, 'Run & Debug', false, true);
+    if (ok) bbSyncedText = generateTm();
+    setSyncChip(ok ? 'ok' : 'run');
+  } finally { syncBusy = false; }
+}
+
+/** Called on every form change: apply it to Run & Debug once typing pauses. */
+function scheduleSyncToRun() {
+  if (!cfg.syncRunEditor || syncBusy) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncEditorToRun, 600);
+}
+
+/** Editor → Run (sync mode only): load the generated file on Run & Debug if it compiles. */
+function syncEditorToRun() {
+  if (!cfg.syncRunEditor || syncBusy) return;
+  const text = generateTm();
+  if (text === bbSyncedText) return;                  // nothing changed since the last exchange
+  if (!TM.compile(text, cfg).ok) { setSyncChip('editor'); return; }
+  syncBusy = true;
+  try {
+    editor.value = text;
+    gutterMarks = new Map();
+    updateGutter();
+    doCompile();
+    bbSyncedText = text;
+    log('info', `⇄ Editor change applied to Run & Debug ("${B.name}")`);
+    setSyncChip('ok');
+  } finally { syncBusy = false; }
+}
+
+/** The Config switch changed: on = copy Run & Debug into the form (or the form into Run & Debug if the text does not compile). */
+function syncSwitched() {
+  clearTimeout(syncTimer);
+  if (!cfg.syncRunEditor) { setSyncChip('off'); log('info', 'Run & Debug and the Editor are no longer kept in sync'); return; }
+  if (TM.compile(editor.value, cfg).ok) syncRunToEditor();
+  else { bbSyncedText = null; syncEditorToRun(); }
+  log('info', '⇄ Run & Debug and the Editor are now kept in sync');
+}
+
+/* ==========================================================================
    L. TABS, THEME, KEYBOARD, WIRING AND START-UP
    ========================================================================== */
 
 /** Show one tab panel and remember the choice. */
+/* Each tab has its own address (…#examples, …#readme), so it can be linked
+   to, bookmarked and shared. Only these names are tab addresses; other
+   anchors (the README's own section links such as #r-format) are left alone. */
+const TAB_HASH = { run: 'run', builder: 'editor', config: 'config', examples: 'examples', readme: 'readme' };
+const tabFromHash = () => Object.keys(TAB_HASH).find(k => '#' + TAB_HASH[k] === location.hash);
+
 function switchTab(name) {
   activeTab = name;
+  // The first tab is the plain address (no #); the others get #name.
+  const want = name === 'run' ? '' : '#' + TAB_HASH[name];
+  if (location.hash !== want && (location.hash === '' || tabFromHash()))
+    history.replaceState(null, '', location.pathname + location.search + want);
   $$('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name)));
   $$('.panel').forEach(p => { p.hidden = p.id !== 'panel-' + name; });
   if (name !== 'run') closePop();
@@ -5521,6 +5763,7 @@ function wire() {
   // Toolbar
   $('#bCompile').addEventListener('click', doCompile);
   $('#bReset').addEventListener('click', resetSim);
+  $('#bToEditor').addEventListener('click', sendToEditor);
   $('#bStart').addEventListener('click', rewind);
   $('#bBack').addEventListener('click', () => stepBack());
   $('#bStep').addEventListener('click', stepForward);
@@ -5541,6 +5784,7 @@ function wire() {
     setTextKey('Position', String(sim.head - sim.min));
     updateDirty();
     log('edit', `✎ Editor updated: Input = ${TM.tapeString(sim, M)}, Position = ${sim.head - sim.min}. Compile to use it.`);
+    syncRunToEditor();
     toast('Input and Position updated in the editor — Compile to apply');
   });
 
@@ -5734,12 +5978,15 @@ function init() {
   renderBuilder();
   renderBbExampleMenu();  // the "Load example…" drop-down on the Editor tab
   updateFramesAllLabel(); // "all (up to N)" follows the Config setting
+  bbSyncedText = generateTm();   // what the form holds now counts as already exchanged
+  setSyncChip(cfg.syncRunEditor ? (TM.compile(editor.value, cfg).ok ? 'ok' : 'run') : 'off');
   log('info', 'Turing Machine Studio started');
   const saved = cfg.restoreLast ? store.get('tm.source') : null;
   if (saved && saved.trim()) setSource(saved, 'your last machine');
   else setSource(EXAMPLES[0].text, `example ${EXAMPLES[0].file}`);
   if (!cfg.autoCompile) doCompile();   // always show something on first open
-  switchTab(store.get('tm.tab', 'run'));
+  switchTab(tabFromHash() || store.get('tm.tab', 'run'));   // a #tab address wins over the last tab used
+  addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== activeTab) switchTab(t); });
 }
 init();
 </script>
