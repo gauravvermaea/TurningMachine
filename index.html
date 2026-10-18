@@ -326,6 +326,7 @@ body.rp-dragging, body.rp-dragging *{cursor:grabbing!important;user-select:none}
 .headmark .tri{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;
   border-top:7px solid var(--accent)}
 .tape-foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:0 14px 12px}
+.summary small.muted{color:var(--muted);font-family:var(--sans);margin-left:6px}
 /* Machine name above the tape (one line; the description is cut with … and shown in full on hover) */
 .tape-title{display:flex;align-items:baseline;gap:10px;padding:10px 14px 0;min-width:0}
 .tape-title b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;max-width:60%}
@@ -1032,7 +1033,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
 <ul>
   <li><b>Toolbar</b> – Compile, Reset, <b>Send to Editor</b> (opens this machine in the form on the Editor tab, to change it field by field), Rewind to step 0, Back, Step, Run/Pause, To end (full speed), run speed, and Go to step <i>n</i>. The pill on the right shows the status: <i>Not compiled</i>, <i>Ready</i>, <i>Running</i>, <i>Halted</i>, <i>Stuck</i> or <i>Compile errors</i>.</li>
   <li><b>Machine name</b> – the name of the loaded machine (and its description, in full on hover) is shown above the tape, so it stays in view while you scroll.</li>
-  <li><b>Tape and head as text</b> – under the tape, the <b>Tape</b> box shows the used part of the tape as text (one character per cell, from the cell shown next to it) and <b>Head at cell</b> shows the head position, numbered as under the tape. Both follow the run. Type in them to change the tape or move the head at once, even mid-run (the run pauses); the graphical tape updates as you type. A symbol that is not in the tape alphabet turns the box red and is not applied. Each visit to a box is one edit, so one <b>Back</b> undoes it. <b>Save tape → Input</b> keeps the new tape for the next Reset.</li>
+  <li><b>Tape and head as text</b> – under the tape, the <b>Tape</b> box shows the used part of the tape as text (one character per cell, from the cell shown next to it) and <b>Head at cell</b> shows the head position, numbered as under the tape. Both follow the run. Type in them to change the tape or move the head at once, even mid-run (the run pauses); the graphical tape updates as you type. A symbol that is not in the tape alphabet turns the box red and is not applied. Each visit to a box is one edit, so one <b>Back</b> undoes it. <b>Save tape → Input</b> keeps the new tape for the next Reset. When the machine stops, <i>Initial input</i> shows the tape the run really started from, marked <i>changed by hand</i> if it differs from the file's Input, and the number of hand edits made during the run.</li>
   <li><b>Pinned tape</b> – the toolbar and the tape stay at the top of the window while you scroll down to the diagram, rules, log and trace (on short or narrow screens they scroll normally). <b>📌 Pin tape</b> in the status strip turns this off or on.</li>
   <li><b>Arrange the panels</b> – everything under the tape (State diagram, Machine definition, Machine, Transition rules, Execution log, State trace, Diagram at every step) is a panel you can arrange: <b>drag it by its header bar</b> and drop it where you want it — a blue marker shows where it will land: on the top or bottom half of another panel to go above or below it, on its left or right edge to sit side by side with it (both become half width), or below the last panel to go to the end (the page scrolls while you drag near the edges; <kbd>Esc</kbd> cancels). You can also use <b>↑ ↓</b>; <b>⇔</b> switches between full and half width (two half panels sit side by side); <b>▾</b> or a click on the title collapses it to its header. The <b>Panels</b> bar has <b>Expand all</b>, <b>Collapse all</b> and <b>⟲ Reset view</b>, which restores the default arrangement. The layout is remembered in the browser.</li>
   <li><b>Status strip</b> – current state (a drop-down: change it by hand), step count, head position, the symbol under the head, and how much tape has been used. <b>Save tape → Input</b> writes the current tape and head position back into the editor as <code>Input</code> and <code>Position</code>.</li>
@@ -2052,6 +2053,9 @@ const TM = (() => {
    */
   function step(sim, m, cfg) {
     if (sim.status === 'halted') return { done: 'halted' };
+    // The tape the run actually starts from: the Input, plus any hand edits
+    // made before the first step (the tape box, a cell, the head, the state).
+    if (sim.step === 0) sim.runInput = { tape: tapeString(sim, m), head: sim.head - sim.min, state: sim.state };
     const sym = read(sim, m, sim.head);
     const rule = lookup(m, sim.state, sym);
     if (!rule) { sim.status = 'stuck'; return { done: 'stuck', sym }; }
@@ -3917,9 +3921,28 @@ function stepOnce() {
   return true;
 }
 
+/**
+ * The input this run really used: the tape when the first step was taken
+ * (or now, at step 0), with hand edits included. `changed` says whether it
+ * differs from the file's Input; `edited` counts hand edits made after step 0.
+ */
+function runInputInfo() {
+  const now = sim.step === 0 || !sim.runInput;
+  const r = now ? { tape: TM.tapeString(sim, M), head: sim.head - sim.min, state: sim.state } : sim.runInput;
+  const file = [...M.input];
+  for (let i = file.length; i <= Math.max(M.position, 0); i++) file.push(M.blank);   // as the simulator pads it
+  const fileTape = file.join('') || M.blank;
+  return {
+    ...r,
+    changed: r.tape !== fileTape || r.head !== M.position || r.state !== M.initial,
+    edited: sim.hist.filter(e => e.t !== 'step' && e.n > 0).length
+  };
+}
+
 /** Log the end-of-run summary, in the same shape as Turing.py's final printout. */
 function logSummary(how) {
   const out = TM.tapeString(sim, M);
+  const inp = runInputInfo();
   log('halt', [
     `Turing Machine : ${M.name}`,
     `Description    : ${M.description}`,
@@ -3927,7 +3950,8 @@ function logSummary(how) {
     `Result         : ${how}`,
     `Execution cycles (time complexity) : ${sim.step}`,
     `Tape used (space complexity)       : ${sim.max - sim.min + 1}`,
-    `Initial input  : ${M.input}`,
+    `Initial input  : ${inp.tape}` + (inp.changed ? `   (changed by hand; the file's Input is ${M.input || '(empty)'})` : ''),
+    ...(inp.edited ? [`Hand edits during the run : ${inp.edited}`] : []),
     `Final output   : ${out}`
   ].join('\n'));
 }
@@ -4698,10 +4722,12 @@ function render() {
 /** The Turing.py-style result table shown when the machine stops. */
 function summaryHtml() {
   const out = TM.tapeString(sim, M);
+  const inp = runInputInfo();
   return `<div class="summary">
     <span>Time (steps)</span><span>${sim.step.toLocaleString()}</span>
     <span>Space (tape used)</span><span>${sim.max - sim.min + 1} cells</span>
-    <span>Initial input</span><span>${esc(M.input) || '(empty)'}</span>
+    <span>Initial input</span><span>${esc(inp.tape) || '(empty)'}${inp.changed ? ` <small class="muted">changed by hand (the file's Input is ${esc(M.input) || '(empty)'})</small>` : ''}</span>
+    ${inp.edited ? `<span>Hand edits during the run</span><span>${inp.edited}</span>` : ''}
     <span>Final output</span><span>${esc(out.length > 200 ? out.slice(0, 200) + '…' : out)}</span></div>`;
 }
 
@@ -5991,7 +6017,7 @@ pre.logtext{margin:0;padding:12px 14px;font:12px/1.5 var(--mono);white-space:pre
     <span>Outcome</span><b>${esc(result)}</b>
     <span>Execution cycles (time)</span><span>${sim.step.toLocaleString()} step${sim.step === 1 ? '' : 's'}</span>
     <span>Tape used (space)</span><span>${sim.max - sim.min + 1} cells</span>
-    <span>Initial input</span><code>${esc(M.input) || '(empty)'} — head at ${M.position}, state ${esc(M.initial)}</code>
+    <span>Initial input</span><code>${esc(runInputInfo().tape) || '(empty)'} — head at ${runInputInfo().head}, state ${esc(runInputInfo().state)}${runInputInfo().changed ? ` (changed by hand before the run; the file's Input is ${esc(M.input) || '(empty)'})` : ''}</code>
     <span>Final tape</span><code>${esc(output)}</code>
     <span>Manual edits during the run</span><span>${rows.length - steps.length}</span>
   </div></section>
