@@ -569,7 +569,12 @@ table.rules select.bad{border-color:var(--err);background:var(--err-tint)}
 .preview .l.warn{background:var(--warn-tint)}
 .preview .l.flash{outline:2px solid var(--accent);outline-offset:-2px}
 /* Brief highlight after "Regenerate" so the rebuild is visible. */
-.preview.regen{animation:regen .7s ease-out}
+.preview.regen,.bb-editor.regen{animation:regen .7s ease-out}
+.bb-editor{height:520px}
+.load-notes{margin:0 0 10px;padding:10px 12px;border:1px solid var(--warn);background:var(--warn-tint);border-radius:8px;font-size:12.5px}
+.load-notes ul{margin:6px 0 0;padding-left:18px}
+.bb-handnote{font-size:12px;color:var(--muted);padding:6px 12px;border-top:1px solid var(--line);background:var(--surface)}
+#bbText.flashline{box-shadow:inset 3px 0 0 var(--accent)}
 @keyframes regen{0%{background:var(--accent-tint)}100%{background:var(--code)}}
 
 /* ==========================================================================
@@ -974,8 +979,13 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
 
       <div class="b-side">
         <div class="card">
-          <div class="card-h"><h2>Generated .tm file</h2><span class="count" id="bbLines"></span><button class="btn sm" id="bbRegen" title="Rebuild the file from the form (also clears old compile marks)">ICON:reset Regenerate</button></div>
-          <pre class="preview" id="bbPreview"></pre>
+          <div class="card-h"><h2>The .tm file</h2><span class="count" id="bbLines"></span><button class="btn sm" id="bbRegen" title="Rebuild the file from the form (also clears old compile marks)">ICON:reset Regenerate</button></div>
+          <!-- Editable: typing here updates the form; changing the form rewrites this text. -->
+          <div class="editor bb-editor" id="bbEditorBox">
+            <div class="gutter"><div class="gutter-in" id="bbGutter"></div></div>
+            <textarea id="bbText" spellcheck="false" wrap="off" autocomplete="off" autocapitalize="off" aria-label="The .tm file (editable)"></textarea>
+          </div>
+          <div class="bb-handnote" id="bbHandNote" hidden>✎ Shown as written (loaded or typed by hand): the form follows this text. Changing the form, or Regenerate, rewrites the file from the form (your own comment lines are then dropped).</div>
         </div>
         <div class="card">
           <div class="card-h"><h2>Compiler output</h2><span class="count" id="bbSummary"></span></div>
@@ -1058,7 +1068,7 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
   <li><b>6 · State diagram</b> – the machine drawn from the form, redrawn as you type. Hover a state or a rule for details.</li>
 </ul>
 <p>Renaming a symbol or state updates every rule that uses it. Removing one leaves a red <i>(removed)</i> in the rules that used it until you pick a replacement.</p>
-<p>The right-hand side shows the generated <code>.tm</code> file, updated as you type, and the compiler output. <b>Regenerate</b> (on the file panel) rebuilds the file from the form and clears old compile marks. The toolbar has <b>Download .tm</b>, <b>Compile</b> (also <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> on this tab), and <b>Compile &amp; load into engine</b>, which puts the machine on Run &amp; Debug ready to run. Compile also warns about anything the original <code>Turing.py</code> cannot read (such as an empty input), so the downloaded file runs in both. <b>Open .tm</b> loads a file from your computer into the form, <b>Load example…</b> fills the form from any of the example machines (so you can change one field by field), and <b>Import from Run &amp; Debug</b> fills it from the machine currently there (the same as <b>Send to Editor</b> on Run &amp; Debug); <b>Reset to defaults</b> starts over. The form is saved in the browser between visits.</p>
+<p>The right-hand side shows <b>the .tm file</b> and the compiler output. The file is generated from the form as you fill it in, and you can also <b>edit it by hand</b>: the form follows what you type (as far as it can), while the text stays exactly as you wrote it, comments included. Compile, Download .tm, Compile &amp; load and the sync with Run &amp; Debug all use the text as it is. Changing the form (or Regenerate) rewrites the text from the form. Problem lines are marked in the line numbers; hover for the explanation, or click a compiler message to select its line. <b>Opening a file with errors</b> (Open .tm, an import, or Send to Editor) no longer refuses it: the form is filled with whatever can be read, the file text is kept as it was so you can fix it, and a note lists what could not go into the form (unreadable lines, rule rows with missing columns, unknown moves) and which undeclared states or symbols were added. <b>Regenerate</b> (on the file panel) rebuilds the file from the form and clears old compile marks. The toolbar has <b>Download .tm</b>, <b>Compile</b> (also <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>Enter</kbd> on this tab), and <b>Compile &amp; load into engine</b>, which puts the machine on Run &amp; Debug ready to run. Compile also warns about anything the original <code>Turing.py</code> cannot read (such as an empty input), so the downloaded file runs in both. <b>Open .tm</b> loads a file from your computer into the form, <b>Load example…</b> fills the form from any of the example machines (so you can change one field by field), and <b>Import from Run &amp; Debug</b> fills it from the machine currently there (the same as <b>Send to Editor</b> on Run &amp; Debug); <b>Reset to defaults</b> starts over. The form is saved in the browser between visits.</p>
 <p><b>Keeping the two tabs in sync.</b> <b>Keep Run &amp; Debug and the Editor in sync</b> (Config tab) is on by default: both tabs always hold the same machine; a green <i>⇄ In sync</i> label shows on both. A change on the form is applied to Run &amp; Debug about half a second after you stop typing, as soon as it compiles (the run restarts from step 0). A compile, a rule edit in the Transition rules table or <b>Save tape → Input</b> on Run &amp; Debug updates the form. Typing in the Run &amp; Debug text only syncs when you compile, so a half-typed line never replaces the form. While one side has errors the other keeps the last working machine, and the label turns amber to say so. Turning the option on copies the Run &amp; Debug machine into the form; turn it off to edit the two tabs separately.</p>
 <h3>3 · Config &amp; Defaults</h3>
 <p>Defaults used when a file leaves a key out (identical to Turing.py), run speed, the safety step limit, logging detail, how many frames the Diagram at every step panel draws, two semantic choices for the wildcard, and editor behaviour. Settings are kept in the browser. Settings that change how machines compile show a <i>Recompile now</i> banner.</p>
@@ -5039,6 +5049,7 @@ function renderBbRules() {
  */
 function bbChanged(stale = true) {
   if (stale) bbLastRes = null;
+  if (!bbFromText && stale) { bbHand = false; store.set('tm.builderText', ''); }   // a form change rewrites the text
   saveBuilder();
   renderBbPreview();
   renderBbHints();
@@ -5179,14 +5190,130 @@ function bbDecorate() {
 }
 
 /** Draw the generated .tm file with line numbers, comments dimmed, compile marks shown. */
+/* ---- The .tm file on the Editor tab ------------------------------------
+   The text area holds THE file: Compile, Download, "Compile & load" and
+   the Run & Debug sync all use exactly what is in it.
+   • Changing the form rewrites the text from the form (generateTm).
+   • Typing in the text updates the form (bbParseLoose) but leaves the text
+     exactly as typed, comments and layout included (bbHand is then true).
+   bbFromText marks a form update that came from the text, so it does not
+   write the text back over what is being typed. */
+let bbHand = false;          // the text was edited by hand (or loaded from a file) since the form last changed
+let bbFromText = false;      // the form is being updated from the text right now
+const bbFileText = () => $('#bbText').value;
+
+/** Write the file text from the form (unless it is hand-edited) and refresh the line numbers and marks. */
 function renderBbPreview() {
-  const text = generateTm();
-  // Lines with problems from the last compile are tinted and explain themselves on hover.
+  const ta = $('#bbText');
+  if (!bbHand && !bbFromText) {
+    const text = generateTm();
+    if (ta.value !== text) { const st = ta.scrollTop; ta.value = text; ta.scrollTop = st; }
+  }
+  bbUpdateGutter();
+  $('#bbHandNote').hidden = !bbHand;
+}
+
+/** Line numbers for the file, with the problems of the last compile marked (hover explains them). */
+function bbUpdateGutter() {
+  const ta = $('#bbText');
   const marks = bbLastRes ? lineTips(bbLastRes.diags) : new Map();
-  const lines = text.replace(/\n$/, '').split('\n');
-  $('#bbPreview').innerHTML = lines.map((l, i) =>
-    `<span class="l ${l.trim().startsWith('#') ? 'c' : ''} ${(marks.get(i + 1) || {}).cls || ''}" data-ln="${i + 1}"${(marks.get(i + 1) || {}).attr || ''}><span class="n">${i + 1}</span>${esc(l) || ' '}</span>`).join('');
-  $('#bbLines').textContent = `${lines.length} lines`;
+  const n = ta.value.split('\n').length;
+  let html = '';
+  for (let i = 1; i <= n; i++) {
+    const m = marks.get(i);
+    html += m ? `<div class="${m.cls}"${m.attr}>${i}</div>` : `<div>${i}</div>`;
+  }
+  $('#bbGutter').innerHTML = html;
+  $('#bbGutter').style.transform = `translateY(${-ta.scrollTop}px)`;
+  $('#bbLines').textContent = `${n} lines`;
+}
+
+/** Select line n of the file and bring it into view (from a compiler message). */
+function bbGotoLine(n) {
+  const ta = $('#bbText'), lines = ta.value.split('\n');
+  n = Math.max(1, Math.min(n, lines.length));
+  let start = 0;
+  for (let i = 0; i < n - 1; i++) start += lines[i].length + 1;
+  ta.focus();
+  ta.setSelectionRange(start, start + lines[n - 1].length);
+  ta.scrollTop = Math.max(0, (n - 1) * 20 - ta.clientHeight / 2);
+}
+
+/**
+ * Read as much of a .tm text as possible into a form model, even when it
+ * does not compile. Settings and rule rows are read like the compiler does;
+ * anything the form cannot hold is reported in `notes` instead of stopping:
+ *   - lines that are neither a setting nor a usable rule row are skipped
+ *   - symbols / states used but not declared are added to the lists
+ *   - a move that is not one of the three move words becomes the No-move
+ * Missing settings take the configured defaults.
+ * @returns {{model: object, notes: string[]}}
+ */
+function bbParseLoose(text) {
+  const notes = [], set = {}, rules = [], explain = [];
+  text.replace(/\r\n/g, '\n').split('\n').forEach((raw, i) => {
+    const tr = raw.trim(), kind = TM.classify(raw), ln = i + 1;
+    if (tr.startsWith('#>')) { explain.push(tr.slice(2).replace(/^ /, '')); return; }
+    if (kind === 'rule') {
+      const all = tr.split(',');
+      if (all.length < 6) { notes.push(`Line ${ln}: a rule row needs 6 columns but has ${all.length}; it was left out of the form`); return; }
+      const c = all.slice(0, 6).map(s => s.replace(/[ \t]/g, ''));
+      if (c.slice(1).some(x => !x)) { notes.push(`Line ${ln}: a rule row has an empty column; it was left out of the form`); return; }
+      rules.push({ state: c[1], read: c[2], write: c[3], next: c[4], move: c[5], comment: all.slice(6).join(',').trim(), ln });
+    } else if (kind === 'kv') {
+      const at = tr.indexOf('=');
+      set[tr.slice(0, at).trim()] = tr.slice(at + 1).trim();
+    } else if (kind === 'unknown') notes.push(`Line ${ln}: “${tr.slice(0, 40)}” is not a setting or a rule row; it was left out of the form`);
+  });
+  const d = cfg.defaults;
+  const get = k => (k in set ? set[k] : (d[k] ?? ''));
+  const list = v => v.split(',').map(s => s.trim()).filter(Boolean);
+  const alphabet = [...new Set(list(get('Tape_Alphabet')))];
+  const states = [...new Set(list(get('States')))];
+  const addSym = (v, why) => { if (v && !alphabet.includes(v)) { alphabet.push(v); notes.push(`Symbol “${v}” is not in Tape_Alphabet (${why}); it was added to the form's alphabet`); } };
+  const addState = (v, why) => { if (v && !states.includes(v)) { states.push(v); notes.push(`State “${v}” is not in States (${why}); it was added to the form's states`); } };
+  const blank = get('Blank_Symbol'), wild = get('Any_Symbol_Wild_Card');
+  addSym(blank, 'it is the blank'); addSym(wild, 'it is the wildcard');
+  const initial = get('Initial_State'), finals = list(get('Final_States'));
+  addState(initial, 'it is the initial state'); finals.forEach(f => addState(f, 'it is a final state'));
+  rules.forEach(r => { addSym(r.read, `rule on line ${r.ln} reads it`); addSym(r.write, `rule on line ${r.ln} writes it`); addState(r.state, `rule on line ${r.ln} uses it`); addState(r.next, `rule on line ${r.ln} goes to it`); });
+  const L = get('Left_Shift_Symbol'), Rw = get('Right_Shift_Symbol'), N = get('No_Shift_Symbol');
+  let position = parseInt(get('Position'), 10);
+  if (!(position >= 0)) { notes.push(`Position “${get('Position')}” is not a number of 0 or more; the form uses 0`); position = 0; }
+  if (!('Tape_Alphabet' in set)) notes.push('Tape_Alphabet is missing');
+  if (!('States' in set)) notes.push('States is missing');
+  if (!initial) notes.push('Initial_State is missing');
+  const model = { seq: 0 };
+  const syms = alphabet.map(v => ({ id: 'a' + (++model.seq), v }));
+  const sts = states.map(v => ({ id: 's' + (++model.seq), v }));
+  const symId = v => (syms.find(x => x.v === v) || {}).id || null;
+  const stId = v => (sts.find(x => x.v === v) || {}).id || null;
+  Object.assign(model, {
+    name: get('Name'), description: get('Description'), explain: explain.join('\n'), input: get('Input'), position,
+    syms, blank: symId(blank), wild: symId(wild), states: sts, initial: stId(initial), finals: finals.map(stId).filter(Boolean),
+    L, R: Rw, N,
+    rules: rules.map(r => {
+      const move = r.move === L ? 'L' : r.move === Rw ? 'R' : r.move === N ? 'N' : null;
+      if (!move) notes.push(`Line ${r.ln}: move “${r.move}” is not ${L}, ${Rw} or ${N}; the form shows ${N} (no move)`);
+      return { state: stId(r.state), read: symId(r.read), write: symId(r.write), next: stId(r.next), move: move || 'N', comment: r.comment };
+    })
+  });
+  return { model, notes };
+}
+
+/** The file text was typed in: update the form from it, keeping the text as typed. */
+function bbTextChanged() {
+  bbHand = true;
+  const { model } = bbParseLoose(bbFileText());
+  bbFromText = true;
+  try {
+    B = model;
+    renderBuilder();                 // redraws the form, the diagram, the hints (not the text)
+  } finally { bbFromText = false; }
+  bbLastRes = null;
+  bbUpdateGutter();
+  $('#bbHandNote').hidden = false;
+  store.set('tm.builderText', bbFileText());
 }
 
 /** Inline hints under the text fields (input symbols, Turing.py compatibility). */
@@ -5217,7 +5344,7 @@ function renderBbHints() {
  * @returns {{text:string, res:object}}
  */
 function bbCompile() {
-  const text = generateTm();
+  const text = bbFileText();
   const res = TM.compile(text, cfg);
   const py = [];
   if (B.name.includes('=') || B.description.includes('=')) py.push('a Name or Description containing "=" is misread as a rule row');
@@ -5256,6 +5383,7 @@ function bbLoad() {
  */
 function bbLoadText(text, from, ask = true, quiet = false) {
   const res = TM.compile(text, cfg);
+  if (!res.ok && !quiet) return bbLoadBroken(text, from, ask, res);
   if (!res.ok) {
     if (quiet) return false;
     const n = res.diags.filter(d => d.level === 'error').length;
@@ -5277,12 +5405,47 @@ function bbLoadText(text, from, ask = true, quiet = false) {
     L: m.L, R: m.R, N: m.N,
     rules: m.rules.map(r => ({ state: stId(r.state), read: symId(r.read), write: symId(r.write), next: stId(r.next), move: role(r.move), comment: r.comment || '' }))
   });
-  renderBuilder();
+  bbFromText = true;                       // the text below is the file itself, not regenerated
+  try { renderBuilder(); } finally { bbFromText = false; }
+  bbShowText(text);
   $('#bbOut').innerHTML = `<div class="empty">Loaded ${esc(from)}. Press Compile to check it.</div>`;
   $('#bbSummary').textContent = '';
   if (quiet) return true;                  // sync mode: no message for every update
   log('info', `Editor: loaded ${from} ("${m.name}") into the form`);
   toast(`Loaded "${m.name}" into the Editor`);
+  return true;
+}
+
+/** Put `text` into the file box exactly as given (a loaded file keeps its own comments and layout). */
+function bbShowText(text) {
+  const ta = $('#bbText');
+  ta.value = text.replace(/\r\n/g, '\n');
+  ta.scrollTop = 0;
+  bbHand = ta.value !== generateTm();
+  store.set('tm.builderText', bbHand ? ta.value : '');
+  bbLastRes = null;
+  renderBbPreview();
+}
+
+/**
+ * Load a .tm text that does NOT compile: fill the form with whatever can be
+ * read (bbParseLoose), keep the original text in the file box so it can be
+ * fixed there, and list both what could not go into the form and the
+ * compiler's errors (with line numbers) under the file.
+ */
+function bbLoadBroken(text, from, ask, res) {
+  const n = res.diags.filter(d => d.level === 'error').length;
+  if (ask && !confirm(`${from} has ${n} compile error${n === 1 ? '' : 's'}. Load what can be read into the form so you can fix it? Your current form will be replaced.`)) return false;
+  const { model, notes } = bbParseLoose(text);
+  B = model;
+  bbFromText = true;
+  try { renderBuilder(); } finally { bbFromText = false; }
+  bbShowText(text);
+  bbCompile();                             // compiler output + marked lines for the text as loaded
+  if (notes.length) $('#bbOut').insertAdjacentHTML('afterbegin',
+    `<div class="load-notes"><b>Loaded what could be read from ${esc(from)}.</b> Fix the file text (or the form) and press Compile.<ul>${notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`);
+  log('warn', `Editor: loaded ${from} with ${n} compile error${n === 1 ? '' : 's'}; ${notes.length} note${notes.length === 1 ? '' : 's'} about what could not go into the form`);
+  toast(`Loaded with ${n} error${n === 1 ? '' : 's'} — see Compiler output under the file`);
   return true;
 }
 
@@ -5331,9 +5494,11 @@ function bbRegenerate() {
   bbChanged(true);
   $('#bbOut').innerHTML = '<div class="empty">File regenerated. Press Compile to check it.</div>';
   $('#bbSummary').textContent = '';
-  const pre = $('#bbPreview');
-  pre.scrollTop = 0;
-  pre.classList.remove('regen'); void pre.offsetWidth; pre.classList.add('regen');
+  bbHand = false; store.set('tm.builderText', '');
+  renderBbPreview();
+  const box = $('#bbEditorBox');
+  $('#bbText').scrollTop = 0; bbUpdateGutter();
+  box.classList.remove('regen'); void box.offsetWidth; box.classList.add('regen');
   toast('Regenerated the .tm file from the form');
 }
 
@@ -5435,7 +5600,7 @@ function wireBuilder() {
     else if (t.id === 'bbLoad') bbLoad();
     else if (t.id === 'bbDownload') {
       const name = (B.name || 'machine').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '') || 'machine';
-      download(name + '.tm', generateTm());
+      download(name + '.tm', bbFileText());
       log('info', `Editor: downloaded ${name}.tm`);
     }
     else if (t.id === 'bbImport') bbImport();
@@ -5464,14 +5629,16 @@ function wireBuilder() {
   wireDiagramZoom($('#bbSdZoom'), $('#bbSd'));
 
   // Clicking a compiler message with a line number highlights that line in the preview.
+  const bbt = $('#bbText');
+  bbt.addEventListener('input', () => { clearTimeout(bbt._t); bbt._t = setTimeout(bbTextChanged, 250); bbUpdateGutter(); });
+  bbt.addEventListener('scroll', () => { $('#bbGutter').style.transform = `translateY(${-bbt.scrollTop}px)`; });
+  bbt.addEventListener('keydown', e => {
+    if (e.key === 'Tab') { e.preventDefault(); document.execCommand('insertText', false, '  '); }   // Tab indents instead of leaving the box
+  });
   $('#bbOut').addEventListener('click', e => {
     const r = e.target.closest('[data-line]');
     if (!r) return;
-    const l = $(`#bbPreview [data-ln="${r.dataset.line}"]`);
-    if (!l) return;
-    l.scrollIntoView({ block: 'center' });
-    l.classList.add('flash');
-    setTimeout(() => l.classList.remove('flash'), 1200);
+    bbGotoLine(+r.dataset.line);
   });
 }
 
@@ -6867,7 +7034,7 @@ function setSyncChip(kind) {
 /** "Send to Editor": put the Run & Debug machine into the form and show the Editor tab. */
 function sendToEditor() {
   if (bbLoadText(editor.value, 'the machine from Run & Debug', !cfg.syncRunEditor)) {
-    bbSyncedText = generateTm();
+    bbSyncedText = bbFileText();
     switchTab('builder');
   }
 }
@@ -6878,7 +7045,7 @@ function syncRunToEditor() {
   syncBusy = true;
   try {
     const ok = bbLoadText(editor.value, 'Run & Debug', false, true);
-    if (ok) bbSyncedText = generateTm();
+    if (ok) bbSyncedText = bbFileText();
     setSyncChip(ok ? 'ok' : 'run');
   } finally { syncBusy = false; }
 }
@@ -6893,7 +7060,7 @@ function scheduleSyncToRun() {
 /** Editor → Run (sync mode only): load the generated file on Run & Debug if it compiles. */
 function syncEditorToRun() {
   if (!cfg.syncRunEditor || syncBusy) return;
-  const text = generateTm();
+  const text = bbFileText();
   if (text === bbSyncedText) return;                  // nothing changed since the last exchange
   if (!TM.compile(text, cfg).ok) { setSyncChip('editor'); return; }
   syncBusy = true;
@@ -7218,13 +7385,17 @@ function init() {
   renderBuilder();
   renderBbExampleMenu();  // the "Load example…" drop-down on the Editor tab
   updateFramesAllLabel(); // "all (up to N)" follows the Config setting
-  bbSyncedText = generateTm();   // what the form holds now counts as already exchanged
+  const handText = store.get('tm.builderText', '');   // a hand-edited file survives a reload (restored below)
+  bbSyncedText = bbFileText();   // what the form holds now counts as already exchanged
   setSyncChip(cfg.syncRunEditor ? (TM.compile(editor.value, cfg).ok ? 'ok' : 'run') : 'off');
   log('info', 'Turing Machine Studio started');
   const saved = cfg.restoreLast ? store.get('tm.source') : null;
   if (saved && saved.trim()) setSource(saved, 'your last machine');
   else setSource(EXAMPLES[0].text, `example ${EXAMPLES[0].file}`);
   if (!cfg.autoCompile) doCompile();   // always show something on first open
+  // Restore the Editor's own file text last, so a hand-edited file (even one
+  // with errors) is not replaced by the Run & Debug machine at start-up.
+  if (handText && handText !== bbFileText()) { $('#bbText').value = handText; bbTextChanged(); bbCompile(); }
   switchTab(tabFromHash() || store.get('tm.tab', 'run'));   // a #tab address wins over the last tab used
   addEventListener('hashchange', () => { const t = tabFromHash(); if (t && t !== activeTab) switchTab(t); });
 }
