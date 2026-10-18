@@ -158,6 +158,10 @@ a{color:var(--accent)}
 .icon-btn:hover{color:var(--ink)}
 
 main{max-width:1600px;margin:0 auto;padding:16px}
+/* Build number at the top right of the header */
+.build{font:600 11.5px var(--mono);color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 9px;white-space:nowrap;margin-left:8px}
+.build small{font-weight:400}
+@media (max-width:700px){.build small{display:none}}
 /* Footer: about text and the example list (also what search engines read) */
 .site-foot{max-width:1600px;margin:24px auto 0;padding:20px 16px 32px;border-top:1px solid var(--line);color:var(--muted);font-size:13px;line-height:1.6;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:8px 40px}
 .site-foot h2{font-size:14px;color:var(--ink);margin:0 0 6px}
@@ -725,6 +729,8 @@ table.rules tr.warnrow td{background:var(--warn-tint)}
       <button class="tab" role="tab" data-tab="examples" aria-selected="false"><span class="n">4</span>Examples</button>
       <button class="tab" role="tab" data-tab="readme" aria-selected="false"><span class="n">5</span>README</button>
     </nav>
+    <!-- Build number and date, filled in by build.py (the number goes up with every delivered version). -->
+    <span class="build" title="Build 26, made on 2026-10-18">Build 26<small> · 2026-10-18</small></span>
     <button class="icon-btn" id="themeBtn" title="Theme: auto / light / dark" aria-label="Switch theme">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
     </button>
